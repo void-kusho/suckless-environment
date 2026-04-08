@@ -1,0 +1,22 @@
+#!/bin/sh
+# dmenu-session - power/session menu using dmenu
+
+selected=$(printf 'logout\nlock\nreboot\nshutdown\n' | dmenu -p "session" -l 4 "$@")
+
+[ -z "$selected" ] && exit 0
+
+case "$selected" in
+	logout)
+		confirm=$(printf 'no\nyes\n' | dmenu -p "logout?" "$@")
+		[ "$confirm" = "yes" ] && { pkill -x slstatus; pkill -x dmenu-clipd; pkill -x dwm; }
+		;;
+	lock) slock ;;
+	reboot)
+		confirm=$(printf 'no\nyes\n' | dmenu -p "reboot?" "$@")
+		[ "$confirm" = "yes" ] && systemctl reboot
+		;;
+	shutdown)
+		confirm=$(printf 'no\nyes\n' | dmenu -p "shutdown?" "$@")
+		[ "$confirm" = "yes" ] && systemctl poweroff
+		;;
+esac

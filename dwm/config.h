@@ -74,8 +74,13 @@ static const Layout layouts[] = {
 
 /* commands */
 static char dmenumon[2] = "0"; /* component of dmenucmd, manipulated in spawn() */
-static const char *dmenucmd[] = { "dmenu_run", "-m", dmenumon, "-fn", dmenufont, "-nb", col_bg, "-nf", col_fg, "-sb", col_sel, "-sf", col_selfg, NULL };
-static const char *termcmd[]  = { "st", NULL };
+static char dmenuborders[2] = "1";
+
+static const char *dmenucmd[] = { "dmenu_run_desktop", "-c", "-bw", dmenuborders , "-m", dmenumon, "-fn", dmenufont, "-nb", col_bg, "-nf", col_fg, "-sb", col_sel, "-sf", col_selfg, NULL };
+static const char *clipcmd[]    = { "dmenu-clip", "-c", "-bw", dmenuborders, "-m", dmenumon, "-fn", dmenufont, "-nb", col_bg, "-nf", col_fg, "-sb", col_sel, "-sf", col_selfg, NULL };
+static const char *cpucmd[]     = { "dmenu-cpupower", "-c", "-bw", dmenuborders, "-m", dmenumon, "-fn", dmenufont, "-nb", col_bg, "-nf", col_fg, "-sb", col_sel, "-sf", col_selfg, NULL };
+static const char *sessioncmd[] = { "dmenu-session", "-c", "-bw", dmenuborders, "-m", dmenumon, "-fn", dmenufont, "-nb", col_bg, "-nf", col_fg, "-sb", col_sel, "-sf", col_selfg, NULL };
+static const char *termcmd[]    = { "st", NULL };
 
 static const Key keys[] = {
 	/* modifier                     key        function        argument */
@@ -85,7 +90,7 @@ static const Key keys[] = {
 	{ MODKEY,                       XK_j,      focusstack,     {.i = +1 } },
 	{ MODKEY,                       XK_k,      focusstack,     {.i = -1 } },
 	{ MODKEY,                       XK_i,      incnmaster,     {.i = +1 } },
-	{ MODKEY,                       XK_p,      incnmaster,     {.i = -1 } },
+	{ MODKEY,                       XK_p,      spawn,          {.v = cpucmd } },
 	{ MODKEY,                       XK_h,      setmfact,       {.f = -0.05} },
 	{ MODKEY,                       XK_l,      setmfact,       {.f = +0.05} },
     { 0, XF86XK_MonBrightnessUp,    spawn,     {.v = brightnessup } },
@@ -110,7 +115,8 @@ static const Key keys[] = {
 	{ MODKEY,                       XK_period, focusmon,       {.i = +1 } },
 	{ MODKEY|ShiftMask,             XK_comma,  tagmon,         {.i = -1 } },
 	{ MODKEY|ShiftMask,             XK_period, tagmon,         {.i = +1 } },
-    { MODKEY,                       XK_v,      spawn,          SHCMD("clipmenu") },
+    { MODKEY,                       XK_v,      spawn,          {.v = clipcmd } },
+    { ControlMask|Mod1Mask,         XK_Delete, spawn,          {.v = sessioncmd } },
 	TAGKEYS(                        XK_1,                      0)
 	TAGKEYS(                        XK_2,                      1)
 	TAGKEYS(                        XK_3,                      2)

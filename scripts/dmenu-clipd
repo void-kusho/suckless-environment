@@ -1,0 +1,46 @@
+#!/bin/sh
+# dmenu-clipd - clipboard history daemon
+# Watches the X clipboard and stores entries for dmenu-clip
+
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/dmenu-clipboard"
+MAX_ENTRIES=50
+POLL_INTERVAL=0.5
+XCLIP_TIMEOUT=2
+
+mkdir -p "$CACHE_DIR"
+
+last_sum=""
+
+while true; do
+	# Skip non-text clipboard content (images, binary data with null bytes)
+	timeout "$XCLIP_TIMEOUT" xclip -selection clipboard -t TARGETS -o 2>/dev/null | grep -q 'UTF8_STRING\|STRING\|TEXT' || {
+		sleep "$POLL_INTERVAL"
+		continue
+	}
+
+	clip=$(timeout "$XCLIP_TIMEOUT" xclip -selection clipboard -o 2>/dev/null) || {
+		sleep "$POLL_INTERVAL"
+		continue
+	}
+
+	# Skip empty or whitespace-only clipboard
+	[ -z "$(printf '%s' "$clip" | tr -d '[:space:]')" ] && sleep "$POLL_INTERVAL" && continue
+
+	# Hash content for dedup and filename
+	sum=$(printf '%s' "$clip" | md5sum | cut -d' ' -f1)
+
+	if [ "$sum" != "$last_sum" ]; then
+		printf '%s' "$clip" > "$CACHE_DIR/$sum"
+		last_sum="$sum"
+
+		# Prune oldest entries beyond limit
+		count=$(ls -1 "$CACHE_DIR" 2>/dev/null | wc -l)
+		if [ "$count" -gt "$MAX_ENTRIES" ]; then
+			ls -1t "$CACHE_DIR" | tail -n +$((MAX_ENTRIES + 1)) | while IFS= read -r f; do
+				rm -f "$CACHE_DIR/$f"
+			done
+		fi
+	fi
+
+	sleep "$POLL_INTERVAL"
+done

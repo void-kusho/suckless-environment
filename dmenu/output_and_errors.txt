@@ -1,0 +1,131 @@
+rm -f dmenu stest drw.o dmenu.o stest.o util.o dmenu-5.4.tar.gz
+cc -c -std=c99 -pedantic -Wall -Os -I/usr/X11R6/include -I/usr/include/freetype2 -D_DEFAULT_SOURCE -D_BSD_SOURCE -D_XOPEN_SOURCE=700 -D_POSIX_C_SOURCE=200809L -DVERSION=\"5.4\" -DXINERAMA dmenu.c
+dmenu.c: In function ‘textw_clamp’:
+dmenu.c:70:1: warning: ISO C forbids nested functions [-Wpedantic]
+   70 | static void
+      | ^~~~~~
+dmenu.c:71:1: error: invalid storage class for function ‘appenditem’
+   71 | appenditem(struct item *item, struct item **list, struct item **last)
+      | ^~~~~~~~~~
+dmenu.c:83:1: warning: ISO C forbids nested functions [-Wpedantic]
+   83 | static void
+      | ^~~~~~
+dmenu.c:84:1: error: invalid storage class for function ‘calcoffsets’
+   84 | calcoffsets(void)
+      | ^~~~~~~~~~~
+dmenu.c:101:1: warning: ISO C forbids nested functions [-Wpedantic]
+  101 | static int
+      | ^~~~~~
+dmenu.c:102:1: error: invalid storage class for function ‘max_textw’
+  102 | max_textw(void)
+      | ^~~~~~~~~
+dmenu.c:110:1: warning: ISO C forbids nested functions [-Wpedantic]
+  110 | static void
+      | ^~~~~~
+dmenu.c:111:1: error: invalid storage class for function ‘cleanup’
+  111 | cleanup(void)
+      | ^~~~~~~
+dmenu.c:126:1: warning: ISO C forbids nested functions [-Wpedantic]
+  126 | static char *
+      | ^~~~~~
+dmenu.c:127:1: error: invalid storage class for function ‘cistrstr’
+  127 | cistrstr(const char *h, const char *n)
+      | ^~~~~~~~
+dmenu.c:144:1: warning: ISO C forbids nested functions [-Wpedantic]
+  144 | static int
+      | ^~~~~~
+dmenu.c:145:1: error: invalid storage class for function ‘drawitem’
+  145 | drawitem(struct item *item, int x, int y, int w)
+      | ^~~~~~~~
+dmenu.c:157:1: warning: ISO C forbids nested functions [-Wpedantic]
+  157 | static void
+      | ^~~~~~
+dmenu.c:158:1: error: invalid storage class for function ‘drawmenu’
+  158 | drawmenu(void)
+      | ^~~~~~~~
+dmenu.c:206:1: warning: ISO C forbids nested functions [-Wpedantic]
+  206 | static void
+      | ^~~~~~
+dmenu.c:207:1: error: invalid storage class for function ‘grabfocus’
+  207 | grabfocus(void)
+      | ^~~~~~~~~
+dmenu.c:223:1: warning: ISO C forbids nested functions [-Wpedantic]
+  223 | static void
+      | ^~~~~~
+dmenu.c:224:1: error: invalid storage class for function ‘grabkeyboard’
+  224 | grabkeyboard(void)
+      | ^~~~~~~~~~~~
+dmenu.c:241:1: warning: ISO C forbids nested functions [-Wpedantic]
+  241 | static void
+      | ^~~~~~
+dmenu.c:242:1: error: invalid storage class for function ‘match’
+  242 | match(void)
+      | ^~~~~
+dmenu.c:295:1: warning: ISO C forbids nested functions [-Wpedantic]
+  295 | static void
+      | ^~~~~~
+dmenu.c:296:1: error: invalid storage class for function ‘insert’
+  296 | insert(const char *str, ssize_t n)
+      | ^~~~~~
+dmenu.c:308:1: warning: ISO C forbids nested functions [-Wpedantic]
+  308 | static size_t
+      | ^~~~~~
+dmenu.c:309:1: error: invalid storage class for function ‘nextrune’
+  309 | nextrune(int inc)
+      | ^~~~~~~~
+dmenu.c:319:1: warning: ISO C forbids nested functions [-Wpedantic]
+  319 | static void
+      | ^~~~~~
+dmenu.c:320:1: error: invalid storage class for function ‘movewordedge’
+  320 | movewordedge(int dir)
+      | ^~~~~~~~~~~~
+dmenu.c:335:1: warning: ISO C forbids nested functions [-Wpedantic]
+  335 | static void
+      | ^~~~~~
+dmenu.c:336:1: error: invalid storage class for function ‘keypress’
+  336 | keypress(XKeyEvent *ev)
+      | ^~~~~~~~
+dmenu.c:545:1: warning: ISO C forbids nested functions [-Wpedantic]
+  545 | static void
+      | ^~~~~~
+dmenu.c:546:1: error: invalid storage class for function ‘paste’
+  546 | paste(void)
+      | ^~~~~
+dmenu.c:563:1: warning: ISO C forbids nested functions [-Wpedantic]
+  563 | static void
+      | ^~~~~~
+dmenu.c:564:1: error: invalid storage class for function ‘readstdin’
+  564 | readstdin(void)
+      | ^~~~~~~~~
+dmenu.c:590:1: warning: ISO C forbids nested functions [-Wpedantic]
+  590 | static void
+      | ^~~~~~
+dmenu.c:591:1: error: invalid storage class for function ‘run’
+  591 | run(void)
+      | ^~~
+dmenu.c:628:1: warning: ISO C forbids nested functions [-Wpedantic]
+  628 | static void
+      | ^~~~~~
+dmenu.c:629:1: error: invalid storage class for function ‘setup’
+  629 | setup(void)
+      | ^~~~~
+dmenu.c:751:1: warning: ISO C forbids nested functions [-Wpedantic]
+  751 | static void
+      | ^~~~~~
+dmenu.c:752:1: error: invalid storage class for function ‘usage’
+  752 | usage(void)
+      | ^~~~~
+dmenu.c:759:1: warning: ISO C forbids nested functions [-Wpedantic]
+  759 | int
+      | ^~~
+dmenu.c:760:1: warning: ‘main’ is normally a non-static function [-Wmain]
+  760 | main(int argc, char *argv[])
+      | ^~~~
+dmenu.c:847:1: error: expected declaration or statement at end of input
+  847 | }
+      | ^
+dmenu.c: At top level:
+dmenu.c:760:1: warning: ‘main’ defined but not used [-Wunused-function]
+  760 | main(int argc, char *argv[])
+      | ^~~~
+make: *** [Makefile:12: dmenu.o] Error 1

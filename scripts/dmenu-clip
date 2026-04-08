@@ -1,0 +1,31 @@
+#!/bin/sh
+# dmenu-clip - clipboard history menu using dmenu
+# Displays entries stored by dmenu-clipd, passes all args to dmenu
+
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/dmenu-clipboard"
+MAX_PREVIEW=80
+
+[ ! -d "$CACHE_DIR" ] && exit 1
+
+# Build preview list (newest first)
+# Each line: "hash preview_text"
+entries=$(
+	for f in $(ls -1t "$CACHE_DIR" 2>/dev/null); do
+		preview=$(head -c "$MAX_PREVIEW" "$CACHE_DIR/$f" | tr '\n' ' ')
+		printf '%s\t%s\n' "$f" "$preview"
+	done
+)
+
+[ -z "$entries" ] && exit 0
+
+# Show only preview text in dmenu
+selected=$(printf '%s\n' "$entries" | cut -f2- | dmenu -p "clipboard" -l 10 "$@")
+
+[ -z "$selected" ] && exit 0
+
+# Match selection back to file (newest first wins on duplicate previews)
+file=$(printf '%s\n' "$entries" | while IFS='	' read -r hash preview; do
+	[ "$preview" = "$selected" ] && printf '%s' "$hash" && break
+done)
+
+[ -n "$file" ] && [ -f "$CACHE_DIR/$file" ] && xclip -selection clipboard < "$CACHE_DIR/$file"

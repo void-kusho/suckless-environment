@@ -10,7 +10,7 @@ REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 BUILD_DEPS="base-devel libxft libxinerama freetype2 fontconfig xorg-server xorg-xinit"
 
 # Runtime dependencies
-RUNTIME_DEPS="ttf-iosevka-nerd feh fcitx5 clipmenu polkit-gnome libpulse xorg-xbacklight maim xclip xsel xdotool thunar"
+RUNTIME_DEPS="ttf-iosevka-nerd feh fcitx5 polkit-gnome libpulse xorg-xbacklight maim xclip xsel xdotool thunar cpupower slock dunst"
 
 echo "==> Installing pacman dependencies"
 sudo pacman -S --needed $BUILD_DEPS $RUNTIME_DEPS
@@ -44,10 +44,20 @@ cd "$REPO_DIR/slstatus" && sudo make clean install
 
 # --- Dotfiles ---
 
-echo "==> Installing dwm-start"
+echo "==> Installing scripts"
 mkdir -p "$HOME/.local/bin"
+for s in dmenu-clipd dmenu-clip dmenu-cpupower dmenu-session; do
+	cp "$REPO_DIR/scripts/$s" "$HOME/.local/bin/$s"
+	chmod +x "$HOME/.local/bin/$s"
+done
+
+echo "==> Installing dwm-start"
 cp "$REPO_DIR/dwm-start" "$HOME/.local/bin/dwm-start"
 chmod +x "$HOME/.local/bin/dwm-start"
+
+echo "==> Installing dunst config"
+mkdir -p "$HOME/.config/dunst"
+cp "$REPO_DIR/dunst/dunstrc" "$HOME/.config/dunst/dunstrc"
 
 echo "==> Installing .xprofile"
 cp "$REPO_DIR/.xprofile" "$HOME/.xprofile"
