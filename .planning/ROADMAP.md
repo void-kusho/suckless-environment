@@ -64,8 +64,8 @@ Plans:
 **UI hint**: yes
 
 Plans:
-- [ ] 03-01: TBD
-- [ ] 03-02: TBD
+- [x] 03-01: TBD
+- [x] 03-02: TBD
 - [ ] 03-03: TBD
 
 ### Phase 4: Clipboard Daemon
