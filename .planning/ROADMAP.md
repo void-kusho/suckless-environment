@@ -44,11 +44,11 @@ Plans:
   3. When battery rises above threshold or starts charging, the state file is cleared so future drops trigger a new alert
   4. Selecting a screen area with screenshot-notify captures it to clipboard and shows a dunst "Image copied to clipboard" notification
   5. Canceling the area selection (pressing Escape) produces no notification and exits cleanly
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
+- [ ] 02-01-PLAN.md — Battery-notify: sysfs reading, state file logic, critical dunst notification
+- [ ] 02-02-PLAN.md — Screenshot-notify: maim|xclip pipeline, cancel detection, success notification
 
 ### Phase 3: Interactive Utilities
 **Goal**: Users can manage sessions, power profiles, and clipboard history through dmenu-driven C utilities that replace the existing shell scripts
@@ -92,6 +92,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 0/2 | Planning complete | - |
-| 2. One-Shot Utilities | 0/0 | Not started | - |
+| 2. One-Shot Utilities | 0/2 | Planning complete | - |
 | 3. Interactive Utilities | 0/0 | Not started | - |
 | 4. Clipboard Daemon | 0/0 | Not started | - |
