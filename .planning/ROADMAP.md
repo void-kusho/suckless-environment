@@ -32,7 +32,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 Plans:
 - [x] 01-01-PLAN.md — Build system (config.mk + Makefile) and shared utility library (util.h/util.c) with test program
-- [ ] 01-02-PLAN.md — dmenu pipe library (dmenu.c), dmenu test program, and install.sh integration
+- [x] 01-02-PLAN.md — dmenu pipe library (dmenu.c), dmenu test program, and install.sh integration
 
 ### Phase 2: One-Shot Utilities
 **Goal**: Users receive battery low alerts and screenshot-copied notifications from native C binaries, validating the foundation's exec and sysfs patterns
