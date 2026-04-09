@@ -8,7 +8,7 @@ COMMON_OBJ = common/util.o
 DMENU_OBJ  = common/dmenu.o
 
 # Utility binaries - populated as phases add utilities
-BINS = battery-notify/battery-notify
+BINS = battery-notify/battery-notify screenshot-notify/screenshot-notify
 
 all: $(COMMON_OBJ) $(DMENU_OBJ) $(BINS)
 
@@ -26,10 +26,18 @@ battery-notify/battery-notify: battery-notify/battery-notify.o $(COMMON_OBJ)
 battery-notify/battery-notify.o: battery-notify/battery-notify.c battery-notify/config.h common/util.h
 	$(CC) -o $@ -c $(CFLAGS) $<
 
+# screenshot-notify
+screenshot-notify/screenshot-notify: screenshot-notify/screenshot-notify.o $(COMMON_OBJ)
+	$(CC) -o $@ $(LDFLAGS) $^
+
+screenshot-notify/screenshot-notify.o: screenshot-notify/screenshot-notify.c common/util.h
+	$(CC) -o $@ -c $(CFLAGS) $<
+
 clean:
 	rm -f $(COMMON_OBJ) $(DMENU_OBJ)
 	rm -f $(BINS)
 	rm -f battery-notify/*.o
+	rm -f screenshot-notify/*.o
 	rm -f test-util test-dmenu tests/test-util.o tests/test-dmenu.o
 
 install: all
