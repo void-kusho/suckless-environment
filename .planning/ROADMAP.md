@@ -31,7 +31,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 2 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Build system (config.mk + Makefile) and shared utility library (util.h/util.c) with test program
+- [x] 01-01-PLAN.md — Build system (config.mk + Makefile) and shared utility library (util.h/util.c) with test program
 - [ ] 01-02-PLAN.md — dmenu pipe library (dmenu.c), dmenu test program, and install.sh integration
 
 ### Phase 2: One-Shot Utilities
