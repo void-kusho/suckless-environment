@@ -8,6 +8,8 @@
 #include "dmenu.h"
 #include "util.h"
 
+#define DMENU_BUFSIZ 1024
+
 DmenuCtx *
 dmenu_open(const char *prompt, char *const extra_argv[])
 {
@@ -39,8 +41,11 @@ dmenu_open(const char *prompt, char *const extra_argv[])
 	/* Create two pipes for bidirectional communication */
 	if (pipe(to_dmenu) < 0)
 		die("pipe:");
-	if (pipe(from_dmenu) < 0)
+	if (pipe(from_dmenu) < 0) {
+		close(to_dmenu[0]);
+		close(to_dmenu[1]);
 		die("pipe:");
+	}
 
 	pid = fork();
 	if (pid < 0)
@@ -66,7 +71,19 @@ dmenu_open(const char *prompt, char *const extra_argv[])
 	if (!ctx)
 		die("malloc:");
 	ctx->write = fdopen(to_dmenu[1], "w");
+	if (!ctx->write) {
+		close(to_dmenu[1]);
+		close(from_dmenu[0]);
+		free(ctx);
+		die("fdopen:");
+	}
 	ctx->read = fdopen(from_dmenu[0], "r");
+	if (!ctx->read) {
+		fclose(ctx->write);
+		close(from_dmenu[0]);
+		free(ctx);
+		die("fdopen:");
+	}
 	ctx->pid = pid;
 
 	free(argv);
@@ -91,11 +108,11 @@ dmenu_read(DmenuCtx *ctx)
 		ctx->write = NULL;
 	}
 
-	buf = malloc(1024);
+	buf = malloc(DMENU_BUFSIZ);
 	if (!buf)
 		die("malloc:");
 
-	if (!fgets(buf, 1024, ctx->read)) {
+	if (!fgets(buf, DMENU_BUFSIZ, ctx->read)) {
 		free(buf);
 		return NULL;
 	}

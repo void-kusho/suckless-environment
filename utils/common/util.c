@@ -118,5 +118,6 @@ setup_sigchld(void)
 	sa.sa_handler = sigchld_handler;
 	sigemptyset(&sa.sa_mask);
 	sa.sa_flags = SA_RESTART | SA_NOCLDSTOP;
-	sigaction(SIGCHLD, &sa, NULL);
+	if (sigaction(SIGCHLD, &sa, NULL) < 0)
+		warn("sigaction:");
 }
