@@ -5,6 +5,14 @@ st/st
 dmenu/dmenu
 dmenu/stest
 slstatus/slstatus
+utils/battery-notify/battery-notify
+utils/screenshot-notify/screenshot-notify
+utils/dmenu-session/dmenu-session
+utils/dmenu-cpupower/dmenu-cpupower
+utils/dmenu-clip/dmenu-clip
+utils/dmenu-clipd/dmenu-clipd
+utils/test-util
+utils/test-dmenu
 
 # Editor backups
 *.swp

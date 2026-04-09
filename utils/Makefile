@@ -7,10 +7,13 @@ include config.mk
 COMMON_OBJ = common/util.o
 DMENU_OBJ  = common/dmenu.o
 
+# X11 libraries (only needed by dmenu-clipd)
+X11_LIBS = -lX11 -lXfixes
+
 # Utility binaries - populated as phases add utilities
 BINS = battery-notify/battery-notify screenshot-notify/screenshot-notify \
        dmenu-session/dmenu-session dmenu-cpupower/dmenu-cpupower \
-       dmenu-clip/dmenu-clip
+       dmenu-clip/dmenu-clip dmenu-clipd/dmenu-clipd
 
 all: $(COMMON_OBJ) $(DMENU_OBJ) $(BINS)
 
@@ -56,6 +59,13 @@ dmenu-clip/dmenu-clip: dmenu-clip/dmenu-clip.o $(COMMON_OBJ) $(DMENU_OBJ)
 dmenu-clip/dmenu-clip.o: dmenu-clip/dmenu-clip.c dmenu-clip/config.h common/util.h common/dmenu.h
 	$(CC) -o $@ -c $(CFLAGS) $<
 
+# dmenu-clipd -- clipboard daemon (needs X11 libraries)
+dmenu-clipd/dmenu-clipd: dmenu-clipd/dmenu-clipd.o $(COMMON_OBJ)
+	$(CC) -o $@ $(LDFLAGS) $^ $(X11_LIBS)
+
+dmenu-clipd/dmenu-clipd.o: dmenu-clipd/dmenu-clipd.c dmenu-clipd/config.h common/util.h
+	$(CC) -o $@ -c $(CFLAGS) $<
+
 clean:
 	rm -f $(COMMON_OBJ) $(DMENU_OBJ)
 	rm -f $(BINS)
@@ -64,6 +74,7 @@ clean:
 	rm -f dmenu-session/*.o
 	rm -f dmenu-cpupower/*.o
 	rm -f dmenu-clip/*.o
+	rm -f dmenu-clipd/*.o
 	rm -f test-util test-dmenu tests/test-util.o tests/test-dmenu.o
 
 install: all
