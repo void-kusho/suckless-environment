@@ -22,7 +22,7 @@ common/dmenu.o: common/dmenu.c common/dmenu.h common/util.h
 clean:
 	rm -f $(COMMON_OBJ) $(DMENU_OBJ)
 	rm -f $(BINS)
-	rm -f test-util tests/test-util.o tests/test-dmenu.o
+	rm -f test-util test-dmenu tests/test-util.o tests/test-dmenu.o
 
 install: all
 	mkdir -p "$(DESTDIR)$(PREFIX)/bin"
@@ -45,5 +45,12 @@ test-util: tests/test-util.o $(COMMON_OBJ)
 tests/test-util.o: tests/test-util.c common/util.h
 	$(CC) -o $@ -c $(CFLAGS) $<
 
-test: test-util
+test-dmenu: tests/test-dmenu.o $(COMMON_OBJ) $(DMENU_OBJ)
+	$(CC) -o $@ $(LDFLAGS) $^
+
+tests/test-dmenu.o: tests/test-dmenu.c common/dmenu.h common/util.h
+	$(CC) -o $@ -c $(CFLAGS) $<
+
+test: test-util test-dmenu
 	./test-util
+	./test-dmenu
