@@ -22,6 +22,7 @@ common/dmenu.o: common/dmenu.c common/dmenu.h common/util.h
 clean:
 	rm -f $(COMMON_OBJ) $(DMENU_OBJ)
 	rm -f $(BINS)
+	rm -f test-util tests/test-util.o tests/test-dmenu.o
 
 install: all
 	mkdir -p "$(DESTDIR)$(PREFIX)/bin"
@@ -35,4 +36,14 @@ uninstall:
 		rm -f "$(DESTDIR)$(PREFIX)/bin/$$(basename $$bin)"; \
 	done
 
-.PHONY: all clean install uninstall
+.PHONY: all clean install uninstall test
+
+# Test targets (not installed)
+test-util: tests/test-util.o $(COMMON_OBJ)
+	$(CC) -o $@ $(LDFLAGS) $^
+
+tests/test-util.o: tests/test-util.c common/util.h
+	$(CC) -o $@ -c $(CFLAGS) $<
+
+test: test-util
+	./test-util
