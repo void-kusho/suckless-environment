@@ -28,11 +28,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. A test program linking common/dmenu.c can open a dmenu pipe, write items, and read a selection back using dmenu_open() and dmenu_select()
   3. Running `make` in any utility directory produces a binary using the shared config.mk convention
   4. Running install.sh compiles all utilities and places binaries into ~/.local/bin
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
+- [ ] 01-01-PLAN.md — Build system (config.mk + Makefile) and shared utility library (util.h/util.c) with test program
+- [ ] 01-02-PLAN.md — dmenu pipe library (dmenu.c), dmenu test program, and install.sh integration
 
 ### Phase 2: One-Shot Utilities
 **Goal**: Users receive battery low alerts and screenshot-copied notifications from native C binaries, validating the foundation's exec and sysfs patterns
@@ -91,7 +91,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/0 | Not started | - |
+| 1. Foundation | 0/2 | Planning complete | - |
 | 2. One-Shot Utilities | 0/0 | Not started | - |
 | 3. Interactive Utilities | 0/0 | Not started | - |
 | 4. Clipboard Daemon | 0/0 | Not started | - |
