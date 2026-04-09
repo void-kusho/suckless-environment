@@ -14,6 +14,8 @@ utils/dmenu-clipd/dmenu-clipd
 utils/test-util
 utils/test-dmenu
 
+.plannig
+.claude
 # Editor backups
 *.swp
 *.orig
