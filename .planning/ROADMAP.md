@@ -78,11 +78,11 @@ Plans:
   3. Only one instance of dmenu-clipd can run at a time (flock enforcement); attempting a second instance exits immediately
   4. Sending SIGTERM to dmenu-clipd shuts it down cleanly (no orphaned X connections, no corrupted cache)
   5. End-to-end: copy text in an app, open dmenu-clip, see the entry, select it, paste it in another app -- the full clipboard workflow works
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 04-01: TBD
-- [ ] 04-02: TBD
+- [ ] 04-01-PLAN.md — Implement dmenu-clipd.c daemon (XFixes events, FNV-1a dedup, flock, select() event loop, SIGTERM shutdown, LRU pruning)
+- [ ] 04-02-PLAN.md — Makefile integration with X11 LDFLAGS and end-to-end clipboard workflow verification
 
 ## Progress
 
@@ -94,4 +94,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | 1. Foundation | 0/2 | Planning complete | - |
 | 2. One-Shot Utilities | 0/2 | Planning complete | - |
 | 3. Interactive Utilities | 0/0 | Not started | - |
-| 4. Clipboard Daemon | 0/0 | Not started | - |
+| 4. Clipboard Daemon | 0/2 | Planning complete | - |
