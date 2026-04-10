@@ -1,4 +1,3 @@
-<!-- GSD:project-start source:PROJECT.md -->
 ## Project
 
 **Suckless Environment v2**
@@ -14,9 +13,7 @@ A hardened, C-native utility suite for a dwm-based Arch Linux desktop environmen
 - **Display server**: X11 — all utilities use Xlib/XFixes directly where needed
 - **Deps**: betterlockscreen (AUR), power-profiles-daemon (pacman), maim + xclip (pacman)
 - **Build**: Each util has its own Makefile, install.sh orchestrates everything
-<!-- GSD:project-end -->
 
-<!-- GSD:stack-start source:codebase/STACK.md -->
 ## Technology Stack
 
 ## Languages
@@ -88,9 +85,7 @@ A hardened, C-native utility suite for a dwm-based Arch Linux desktop environmen
 - Install with: `cd /home/void/.config/suckless-environment && ./install.sh`
 - Built binaries installed to `/usr/local/bin/`
 - Manual pages installed to `/usr/local/share/man/`
-<!-- GSD:stack-end -->
 
-<!-- GSD:conventions-start source:CONVENTIONS.md -->
 ## Conventions
 
 ## Naming Patterns
@@ -200,9 +195,7 @@ A hardened, C-native utility suite for a dwm-based Arch Linux desktop environmen
 - Conditional compilation used extensively: `#if defined(__linux__)`
 - Platform gates allow single codebase
 - No feature flags—only OS/architecture detection
-<!-- GSD:conventions-end -->
 
-<!-- GSD:architecture-start source:ARCHITECTURE.md -->
 ## Architecture
 
 ## Pattern Overview
@@ -295,33 +288,7 @@ A hardened, C-native utility suite for a dwm-based Arch Linux desktop environmen
 - slstatus components return "n/a" string on read errors (configurable via unknown_str)
 - dmenu-clipd silently skips non-text clipboard content and empty entries
 - No retry logic; fail fast and let supervisors (systemd/scripts) restart as needed
-## Cross-Cutting Concerns
-<!-- GSD:architecture-end -->
-
-<!-- GSD:skills-start source:skills/ -->
-## Project Skills
-
-No project skills found. Add skills to any of: `.claude/skills/`, `.agents/skills/`, `.cursor/skills/`, or `.github/skills/` with a `SKILL.md` index file.
-<!-- GSD:skills-end -->
-
-<!-- GSD:workflow-start source:GSD defaults -->
-## GSD Workflow Enforcement
-
-Before using Edit, Write, or other file-changing tools, start work through a GSD command so planning artifacts and execution context stay in sync.
-
-Use these entry points:
-- `/gsd-quick` for small fixes, doc updates, and ad-hoc tasks
-- `/gsd-debug` for investigation and bug fixing
-- `/gsd-execute-phase` for planned phase work
-
-Do not make direct repo edits outside a GSD workflow unless the user explicitly asks to bypass it.
-<!-- GSD:workflow-end -->
 
 
 
-<!-- GSD:profile-start -->
-## Developer Profile
 
-> Profile not yet configured. Run `/gsd-profile-user` to generate your developer profile.
-> This section is managed by `generate-claude-profile` -- do not edit manually.
-<!-- GSD:profile-end -->
