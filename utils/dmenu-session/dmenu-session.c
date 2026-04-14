@@ -74,24 +74,24 @@ action_logout(char *const extra_argv[])
 static void
 action_reboot(char *const extra_argv[])
 {
-	const char *reboot_cmd[] = { "systemctl", "reboot", NULL };
+	const char *reboot_cmd[] = { "loginctl", "reboot", NULL };
 
 	if (!confirm("reboot?", extra_argv))
 		return;
 
-	/* exec_detach because systemctl reboot does not return */
+	/* exec_detach because loginctl reboot does not return */
 	exec_detach(reboot_cmd);
 }
 
 static void
 action_shutdown(char *const extra_argv[])
 {
-	const char *poweroff_cmd[] = { "systemctl", "poweroff", NULL };
+	const char *poweroff_cmd[] = { "loginctl", "poweroff", NULL };
 
 	if (!confirm("shutdown?", extra_argv))
 		return;
 
-	/* exec_detach because systemctl poweroff does not return */
+	/* exec_detach because loginctl poweroff does not return */
 	exec_detach(poweroff_cmd);
 }
 

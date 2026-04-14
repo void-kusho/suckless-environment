@@ -13,10 +13,10 @@ case "$selected" in
 	lock) slock ;;
 	reboot)
 		confirm=$(printf 'no\nyes\n' | dmenu -p "reboot?" "$@")
-		[ "$confirm" = "yes" ] && systemctl reboot
+		[ "$confirm" = "yes" ] && loginctl reboot
 		;;
 	shutdown)
 		confirm=$(printf 'no\nyes\n' | dmenu -p "shutdown?" "$@")
-		[ "$confirm" = "yes" ] && systemctl poweroff
+		[ "$confirm" = "yes" ] && loginctl poweroff
 		;;
 esac
