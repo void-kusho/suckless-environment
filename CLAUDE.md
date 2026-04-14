@@ -55,7 +55,7 @@ A hardened, C-native utility suite for a dwm-based Arch/Artix Linux desktop envi
 - `ttf-iosevka-nerd` - Nerd Font with extended glyphs (status icons, tags)
 - `feh` - Image viewer/wallpaper setter
 - `fcitx5` - Input method framework (CJK text input)
-- `polkit-gnome` - PolicyKit GNOME authentication agent (for privilege escalation)
+- `lxpolkit` - Lightweight PolicyKit authentication agent (for privilege escalation)
 - `libpulse` - PulseAudio client library (volume control)
 - `xorg-xbacklight` - Backlight brightness control
 - `maim` - Screenshot utility with selection
@@ -236,7 +236,7 @@ A hardened, C-native utility suite for a dwm-based Arch/Artix Linux desktop envi
 - Purpose: System-level operations and daemon management
 - Location: `scripts/`, `dwm-start`, `.xprofile`
 - Contains: Clipboard daemon (dmenu-clipd), clipboard browser (dmenu-clip), CPU governor selector (dmenu-cpupower), session manager (dmenu-session)
-- Depends on: Shell (sh), dmenu, system utilities (xclip, cpupower, systemctl, slock)
+- Depends on: Shell (sh), dmenu, system utilities (xclip, cpupower, loginctl, slock)
 - Used by: dwm keybindings, X11 initialization
 - Purpose: Desktop notification rendering and management
 - Location: `dunst/dunstrc`
