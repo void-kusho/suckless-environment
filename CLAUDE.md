@@ -42,7 +42,7 @@ A hardened, C-native utility suite for a dwm-based desktop environment targeting
 - fcitx5 — input method framework, launched in `.xprofile` (see `/home/void/.config/suckless-environment/.xprofile:14` and `dwm-start` replaces xprofile in practice; see `dwm-start:14`).
 - lxpolkit — PolicyKit authentication agent (`dwm-start:13`, replaces the `polkit-gnome` mentioned in earlier revisions).
 - power-profiles-daemon (Artix variant `power-profiles-daemon-openrc`) — replaces the older `cpupower` + `pkexec` pipeline. The C `dmenu-cpupower` shells out to `powerprofilesctl` (`utils/dmenu-cpupower/dmenu-cpupower.c:60-61`).
-- betterlockscreen (AUR) — lock screen used by `action_lock()` in `utils/dmenu-session/dmenu-session.c:33-36`. Note drift: CLAUDE.md still references `slock`, but `slock` is neither vendored nor installed.
+- betterlockscreen (AUR) — lock screen used by `action_lock()` in `utils/dmenu-session/dmenu-session.c:33-36`.
 - POSIX `make` with the suckless `config.mk` + `config.h` idiom. Every tree follows the same pattern:
 - `utils/Makefile` builds the in-house C utilities as a single project, linking each binary against `common/util.o` and (where relevant) `common/dmenu.o`. See `utils/Makefile:14-16`.
 - Hand-rolled test harness (no framework). Tests live in `utils/tests/test-util.c` and `utils/tests/test-dmenu.c` and run via `make -C utils test` (`utils/Makefile:107-109`).
@@ -85,9 +85,6 @@ A hardened, C-native utility suite for a dwm-based desktop environment targeting
 - Suckless tool binaries + man pages → `/usr/local/bin`, `/usr/local/share/man/man1` via `sudo make clean install` in each of `dwm/`, `st/`, `dmenu/`, `slstatus/`.
 - In-house utility binaries → `~/.local/bin` via `make -C utils install`.
 - Session scripts and configs as listed above.
-- CLAUDE.md lists `slock` as a dependency; it is not installed and `action_lock()` now uses `betterlockscreen`.
-- CLAUDE.md lists `cpupower` + `pkexec` as the CPU governor path; the live C utility uses `powerprofilesctl` (power-profiles-daemon).
-- CLAUDE.md references Void Linux in older sections; only Arch and Artix are actually targeted by `install.sh`.
 <!-- GSD:stack-end -->
 
 <!-- GSD:conventions-start source:CONVENTIONS.md -->
@@ -270,7 +267,7 @@ A hardened, C-native utility suite for a dwm-based desktop environment targeting
 - Used by: dwm keybinds, `dwm-start` daemon list, external hotkeys (battery-notify is designed to be called from a cron/timer or future hotkey).
 - Purpose: Historical reference implementations of the above.
 - Location: `scripts/dmenu-clip`, `scripts/dmenu-clipd`, `scripts/dmenu-cpupower`, `scripts/dmenu-session`.
-- Status: Kept as reference only — not installed. `install.sh:55-57` explicitly notes they are superseded by the C utilities. Drift exists (e.g., `scripts/dmenu-session:13` calls `slock`, but the live C version uses `betterlockscreen`).
+- Status: Kept as reference only — not installed. `install.sh:55-57` explicitly notes they are superseded by the C utilities (which use betterlockscreen and powerprofilesctl).
 ## Data Flow
 - dwm: in-memory linked lists of `Client`s per `Monitor`; focus history via `snext` stack pointer (`dwm/dwm.c:113-114`).
 - slstatus: stateless each tick; CPU component keeps a file-static `long double a[7]` buffer across ticks for delta calc (`slstatus/components/cpu.c:27-49`).
