@@ -20,3 +20,4 @@ utils/test-dmenu
 *.swp
 *.orig
 *~
+.planning/
