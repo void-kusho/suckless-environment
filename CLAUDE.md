@@ -3,16 +3,17 @@
 
 **Suckless Environment v2**
 
-A hardened, C-native utility suite for a dwm-based Arch Linux desktop environment. Replaces fragile shell scripts with compiled C programs that integrate with dmenu, dunst, and X11 — while fixing broken functionality (lock screen, CPU profiles) and adding missing features (battery alerts, screenshot notifications).
+A hardened, C-native utility suite for a dwm-based Arch/Artix Linux desktop environment. Replaces fragile shell scripts with compiled C programs that integrate with dmenu, dunst, and X11 — while fixing broken functionality (lock screen, CPU profiles) and adding missing features (battery alerts, screenshot notifications).
 
 **Core Value:** Every user-facing utility is a fast, safe, native C program that works reliably without runtime dependencies on shell interpreters.
 
 ### Constraints
 
-- **Platform**: Arch Linux only — pacman/AUR package names
+- **Platform**: Arch Linux (systemd) or Artix Linux (OpenRC) — pacman/AUR package names
+- **Init system**: Session/power actions go through `loginctl` (elogind on Artix, systemd-logind on Arch) — no direct systemctl or OpenRC service calls in user utilities
 - **Philosophy**: Suckless-style C — minimal dependencies, no frameworks
 - **Display server**: X11 — all utilities use Xlib/XFixes directly where needed
-- **Deps**: betterlockscreen (AUR), power-profiles-daemon (pacman), maim + xclip (pacman)
+- **Deps**: betterlockscreen (AUR), power-profiles-daemon-openrc on Artix / power-profiles-daemon on Arch (pacman), lxpolkit (pacman), maim + xclip (pacman)
 - **Build**: Each util has its own Makefile, install.sh orchestrates everything
 <!-- GSD:project-end -->
 
