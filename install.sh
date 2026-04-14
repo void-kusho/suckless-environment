@@ -10,7 +10,7 @@ REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 BUILD_DEPS="base-devel libxft libxinerama freetype2 fontconfig xorg-server xorg-xinit"
 
 # Runtime dependencies
-RUNTIME_DEPS="ttf-iosevka-nerd feh fcitx5 lxpolkit libpulse xorg-xbacklight maim xclip xsel xdotool thunar power-profiles-daemon dunst"
+RUNTIME_DEPS="ttf-iosevka-nerd feh fcitx5 lxpolkit libpulse xorg-xbacklight maim xclip xsel xdotool thunar power-profiles-daemon-openrc dunst"
 
 echo "==> Installing pacman dependencies"
 sudo pacman -S --needed $BUILD_DEPS $RUNTIME_DEPS
