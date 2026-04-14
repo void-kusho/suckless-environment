@@ -11,9 +11,10 @@ DMENU_OBJ  = common/dmenu.o
 X11_LIBS = -lX11 -lXfixes
 
 # Utility binaries - populated as phases add utilities
-BINS = battery-notify/battery-notify screenshot-notify/screenshot-notify \
-       dmenu-session/dmenu-session dmenu-cpupower/dmenu-cpupower \
-       dmenu-clip/dmenu-clip dmenu-clipd/dmenu-clipd
+BINS = battery-notify/battery-notify brightness-notify/brightness-notify \
+       screenshot-notify/screenshot-notify dmenu-session/dmenu-session \
+       dmenu-cpupower/dmenu-cpupower dmenu-clip/dmenu-clip \
+       dmenu-clipd/dmenu-clipd
 
 all: $(COMMON_OBJ) $(DMENU_OBJ) $(BINS)
 
@@ -29,6 +30,13 @@ battery-notify/battery-notify: battery-notify/battery-notify.o $(COMMON_OBJ)
 	$(CC) -o $@ $(LDFLAGS) $^
 
 battery-notify/battery-notify.o: battery-notify/battery-notify.c battery-notify/config.h common/util.h
+	$(CC) -o $@ -c $(CFLAGS) $<
+
+# brightness-notify
+brightness-notify/brightness-notify: brightness-notify/brightness-notify.o $(COMMON_OBJ)
+	$(CC) -o $@ $(LDFLAGS) $^
+
+brightness-notify/brightness-notify.o: brightness-notify/brightness-notify.c brightness-notify/config.h common/util.h
 	$(CC) -o $@ -c $(CFLAGS) $<
 
 # screenshot-notify
@@ -70,6 +78,7 @@ clean:
 	rm -f $(COMMON_OBJ) $(DMENU_OBJ)
 	rm -f $(BINS)
 	rm -f battery-notify/*.o
+	rm -f brightness-notify/*.o
 	rm -f screenshot-notify/*.o
 	rm -f dmenu-session/*.o
 	rm -f dmenu-cpupower/*.o

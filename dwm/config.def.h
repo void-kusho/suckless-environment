@@ -4,8 +4,8 @@
 #include <X11/keysym.h>
 
 // Define commands bright and volume
-static const char *brightnessup[]   = { "xbacklight", "-inc", "5", NULL };
-static const char *brightnessdown[] = { "xbacklight", "-dec", "5", NULL };
+static const char *brightnessup[]   = { "brightness-notify", "up", NULL };
+static const char *brightnessdown[] = { "brightness-notify", "down", NULL };
 static const char *volumeup[]       = { "pactl", "set-sink-volume", "@DEFAULT_SINK@", "+5%", NULL };
 static const char *volumedown[]     = { "pactl", "set-sink-volume", "@DEFAULT_SINK@", "-5%", NULL };
 static const char *volumemute[]     = { "pactl", "set-sink-mute", "@DEFAULT_SINK@", "toggle", NULL };
