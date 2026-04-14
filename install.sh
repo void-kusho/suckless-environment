@@ -12,6 +12,8 @@ BUILD_DEPS="base-devel git libxft libxinerama freetype2 fontconfig xorg-server x
 RUNTIME_DEPS="ttf-iosevka-nerd feh fcitx5 lxpolkit libpulse brightnessctl maim xclip xsel xdotool thunar pamixer dunst"
 AUR_DEPS="brave-bin betterlockscreen"
 # PPD_PKG, INIT, AUR_HELPER set at runtime by detect_distro / ensure_aur_helper
+UDEV_RULE_SRC="$REPO_DIR/udev/90-backlight.rules"
+UDEV_RULE_DST=/etc/udev/rules.d/90-backlight.rules
 SUDO_KEEPALIVE_PID=""
 
 # ---------------------------------------------------------------- color + helpers (D-14)
@@ -139,6 +141,243 @@ bootstrap_aur_helper() {
 
 # ---------------------------------------------------------------- install steps — added in Plans 02/03
 
+install_pkgs() {
+    info "installing pacman packages (build + runtime + PPD variant for $ID)"
+    # shellcheck disable=SC2086   # intentional word-splitting on space-separated lists
+    sudo pacman -S --needed --noconfirm $BUILD_DEPS $RUNTIME_DEPS "$PPD_PKG" \
+        || die "pacman install failed"
+
+    info "installing AUR packages via $AUR_HELPER"
+    # shellcheck disable=SC2086
+    "$AUR_HELPER" -S --needed --noconfirm $AUR_DEPS \
+        || die "$AUR_HELPER install failed"
+}
+
+install_udev_rule() {
+    [ -r "$UDEV_RULE_SRC" ] || die "$UDEV_RULE_SRC not found in repo"
+
+    if [ -r "$UDEV_RULE_DST" ] && sudo cmp -s "$UDEV_RULE_SRC" "$UDEV_RULE_DST"; then
+        skip "udev rule already installed and up to date: $UDEV_RULE_DST"
+        return 0
+    fi
+
+    info "installing $UDEV_RULE_DST"
+    sudo install -m 0644 -o root -g root "$UDEV_RULE_SRC" "$UDEV_RULE_DST" \
+        || die "failed to install $UDEV_RULE_DST"
+
+    info "reloading udev rules + triggering backlight subsystem"
+    sudo udevadm control --reload-rules \
+        || warn "udevadm control --reload-rules failed"
+    sudo udevadm trigger -s backlight \
+        || warn "udevadm trigger -s backlight failed"
+}
+
+enable_service() {
+    _svc=power-profiles-daemon
+
+    case "$INIT" in
+        systemd)
+            if systemctl is-enabled --quiet "$_svc" 2>/dev/null; then
+                skip "$_svc already enabled (systemd)"
+            else
+                info "enabling $_svc via systemd"
+                sudo systemctl enable --now "$_svc" \
+                    || die "systemctl enable $_svc failed"
+            fi
+            ;;
+        openrc)
+            if rc-update -q show default 2>/dev/null | grep -qw "$_svc"; then
+                skip "$_svc already in default runlevel (openrc)"
+            else
+                info "adding $_svc to default runlevel (openrc)"
+                sudo rc-update add "$_svc" default \
+                    || die "rc-update add $_svc failed"
+                sudo rc-service "$_svc" start \
+                    || warn "$_svc start failed — check 'rc-service $_svc status'"
+            fi
+            ;;
+        *)
+            die "enable_service: unknown INIT=$INIT"
+            ;;
+    esac
+}
+
+ensure_groups() {
+    _need=""
+    _groups=",$(id -nG "$USER" | tr ' ' ',' ),"
+    case "$_groups" in
+        *,video,*) ;;
+        *)         _need="${_need}video," ;;
+    esac
+    case "$_groups" in
+        *,input,*) ;;
+        *)         _need="${_need}input," ;;
+    esac
+    _need=${_need%,}
+
+    if [ -z "$_need" ]; then
+        skip "user $USER already in video,input"
+        return 0
+    fi
+
+    info "adding $USER to groups: $_need"
+    sudo usermod -aG "$_need" "$USER" \
+        || die "usermod -aG $_need $USER failed"
+    warn "log out and back in to activate new group membership"
+}
+
+# INST-06: only install from utils/; never copy scripts/ to PATH.
+install_suckless_tool() {
+    _dir=$1
+    info "building $_dir (as user — creates config.h with user ownership)"
+    make -C "$REPO_DIR/$_dir" clean \
+        || die "make -C $_dir clean failed"
+    # If config.h is root-owned from a prior `sudo make install`, this step fails.
+    # D-21 defers the chown fix; manual workaround:
+    #   sudo chown "$USER:$USER" dwm/config.h st/config.h dmenu/config.h slstatus/config.h
+    make -C "$REPO_DIR/$_dir" \
+        || die "make -C $_dir failed (check config.h ownership if it's root-owned)"
+    info "installing $_dir (requires sudo)"
+    sudo make -C "$REPO_DIR/$_dir" install \
+        || die "sudo make -C $_dir install failed"
+}
+
+install_binaries() {
+    install_suckless_tool dwm
+    install_suckless_tool st
+    install_suckless_tool dmenu
+    install_suckless_tool slstatus
+
+    info "building + installing utils/ to \$HOME/.local/bin"
+    make -C "$REPO_DIR/utils" clean all \
+        || die "make -C utils clean all failed"
+    make -C "$REPO_DIR/utils" install \
+        || die "make -C utils install failed"
+}
+
+install_dotfile() {
+    _src=$1
+    _dst=$2
+
+    if [ -e "$_dst" ]; then
+        if cmp -s "$_src" "$_dst"; then
+            skip "$_dst up to date"
+            return 0
+        fi
+        _bak="$_dst.bak.$(date +%Y%m%d-%H%M%S)"
+        cp -p "$_dst" "$_bak" \
+            || die "failed to back up $_dst"
+        info "backed up existing $_dst to $_bak"
+    fi
+
+    mkdir -p "$(dirname "$_dst")"
+    cp "$_src" "$_dst" \
+        || die "failed to install $_dst"
+    info "installed $_dst"
+}
+
+install_dotfiles() {
+    install_dotfile "$REPO_DIR/dunst/dunstrc" "$HOME/.config/dunst/dunstrc"
+    install_dotfile "$REPO_DIR/.xprofile"    "$HOME/.xprofile"
+    install_dotfile "$REPO_DIR/dwm-start"    "$HOME/.local/bin/dwm-start"
+    chmod +x "$HOME/.local/bin/dwm-start"
+}
+
+WARN_COUNT=0
+
+v_ok()   { printf '  %sOK%s   %s\n' "$C_GREEN" "$C_RESET" "$*"; }
+v_info() { printf '  %sINFO%s %s\n' "$C_BLUE"  "$C_RESET" "$*"; }
+v_warn() { printf '  %sWARN%s %s\n' "$C_YELLOW" "$C_RESET" "$*"; WARN_COUNT=$((WARN_COUNT + 1)); }
+
+check_cmd() {
+    _label=$1
+    _cmd=$2
+    _failmsg=$3
+    if command -v "$_cmd" >/dev/null 2>&1; then
+        v_ok "$_label: $(command -v "$_cmd")"
+    else
+        v_warn "$_failmsg"
+    fi
+}
+
+verify_install() {
+    hr
+    info "verification summary (D-17: warnings only, never fatal)"
+    hr
+
+    # Path checks (D-16 items 1-9)
+    check_cmd "dwm"               dwm               "dwm not on PATH — re-run install or check /usr/local/bin"
+    check_cmd "st"                st                "st not on PATH"
+    check_cmd "dmenu"             dmenu             "dmenu not on PATH"
+    check_cmd "slstatus"          slstatus          "slstatus not on PATH"
+    check_cmd "dunst"             dunst             "dunst not on PATH"
+    check_cmd "brightnessctl"     brightnessctl     "brightnessctl not on PATH — brightness keys will fail"
+    check_cmd "betterlockscreen"  betterlockscreen  "betterlockscreen missing — dmenu-session lock will fail"
+    check_cmd "powerprofilesctl"  powerprofilesctl  "powerprofilesctl missing — dmenu-cpupower will be non-functional"
+    check_cmd "loginctl"          loginctl          "loginctl missing — session actions will fail"
+
+    # 10. PPD reachability (distinguishes installed-but-dead from missing)
+    if _out=$(powerprofilesctl get 2>/dev/null) && [ -n "$_out" ]; then
+        v_ok "power-profiles-daemon reachable (current profile: $_out)"
+    else
+        v_warn "power-profiles-daemon unreachable — check 'systemctl status power-profiles-daemon' (Arch) or 'rc-service power-profiles-daemon status' (Artix)"
+    fi
+
+    # 11. Session active
+    if [ -n "${XDG_SESSION_ID:-}" ]; then
+        _active=$(loginctl show-session "$XDG_SESSION_ID" --property=Active 2>/dev/null || true)
+        case "$_active" in
+            Active=yes) v_ok "session $XDG_SESSION_ID is active" ;;
+            *)          v_warn "session $XDG_SESSION_ID is not active — some features require active session" ;;
+        esac
+    else
+        v_info "no XDG_SESSION_ID — install.sh not run from a logged-in session (OK if run from tty)"
+    fi
+
+    # 12. Backlight device (glob-safe)
+    set -- /sys/class/backlight/*/brightness
+    if [ -e "$1" ]; then
+        v_ok "backlight device: $(dirname "$1")"
+    else
+        v_info "no backlight device detected (desktop? headless?)"
+    fi
+
+    # 13. Groups (comma-framed, no false positives)
+    _groups_check=",$(id -nG "$USER" | tr ' ' ',' ),"
+    _have_video=0; _have_input=0
+    case "$_groups_check" in *,video,*) _have_video=1 ;; esac
+    case "$_groups_check" in *,input,*) _have_input=1 ;; esac
+    if [ "$_have_video" -eq 1 ] && [ "$_have_input" -eq 1 ]; then
+        v_ok "user $USER in groups: video,input"
+    else
+        v_warn "user $USER not in video,input — log out and back in to activate"
+    fi
+
+    # 14. Udev rule
+    if [ -r /etc/udev/rules.d/90-backlight.rules ]; then
+        v_ok "udev rule present: /etc/udev/rules.d/90-backlight.rules"
+    else
+        v_warn "/etc/udev/rules.d/90-backlight.rules not found"
+    fi
+
+    # 15. Dunst running
+    if pgrep -x dunst >/dev/null 2>&1; then
+        v_ok "dunst running"
+    else
+        v_info "dunst not running — will start with X session"
+    fi
+
+    hr
+    if [ "$WARN_COUNT" -eq 0 ]; then
+        info "verification passed with 0 warnings"
+    else
+        info "verification passed with $WARN_COUNT warning(s) — review above"
+    fi
+    # D-17: NEVER exit non-zero on warnings.
+}
+
+# ---------------------------------------------------------------- install steps — added in Plans 02/03
+
 # ---------------------------------------------------------------- main
 main() {
     require_non_root
@@ -149,11 +388,14 @@ main() {
     trap 'sudo_keepalive_stop; exit 143' TERM
 
     ensure_aur_helper
-
-    # install_pkgs / install_udev_rule / enable_service / ensure_groups — Plan 02
-    # install_binaries / install_dotfiles / verify_install — Plan 03
-
-    info "skeleton OK (plans 02/03 fill in the rest)"
+    install_pkgs
+    install_udev_rule
+    enable_service
+    ensure_groups
+    install_binaries
+    install_dotfiles
+    verify_install
+    info "install complete"
 }
 
 main "$@"
