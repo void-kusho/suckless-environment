@@ -62,7 +62,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. A line-by-line parity audit document exists in `.planning/` (or commit message) showing each `scripts/` shell script vs its `utils/` C counterpart — flags, edge cases, error messages — with any C gaps either fixed or recorded as deferred.
   3. `CLAUDE.md` references `betterlockscreen` (not `slock`), `powerprofilesctl` (not `pkexec cpupower`), and contains zero references to Void Linux.
   4. `grep -r slock CLAUDE.md` and `grep -r 'pkexec cpupower' CLAUDE.md` both return no matches.
-**Plans**: TBD
+**Plans**: 3 plans
+- [x] 03-01-PLAN.md — scripts/README.md deprecation notice
+- [x] 03-02-PLAN.md — Parity audit document
+- [x] 03-03-PLAN.md — CLAUDE.md drift fixes
 
 ### Phase 4: Release readiness
 **Goal**: A new user landing on the GitHub repo can read the README, understand what the project is, see screenshots of it running, follow the install instructions on Arch or Artix, and reach a working desktop without asking the maintainer questions.
