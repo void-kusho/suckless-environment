@@ -12,51 +12,52 @@
 #define LOCK_FILE   "/tmp/brightness.lock"
 #define BACKLIGHT_DEV "backlight"
 
-static int get_brightness(void);
-static int set_brightness(int percent);
+static int read_int_cmd(const char *cmd);
+static int get_brightness_raw(void);
+static int get_max_brightness(void);
+static int set_brightness_raw(int value);
 static void send_osd(int percent);
 
 static int
-get_brightness(void)
+read_int_cmd(const char *cmd)
 {
 	FILE *fp;
-	int percent = -1;
+	int value = -1;
 	char buf[32];
 
-	/* Use brightnessctl to get current brightness */
-	fp = popen("brightnessctl -c backlight g", "r");
+	fp = popen(cmd, "r");
 	if (!fp)
 		return -1;
 
-	if (fgets(buf, sizeof(buf), fp)) {
-		/* Parse percentage from output like "80%" */
-		char *p = strchr(buf, '%');
-		if (p)
-			*p = '\0';
-		percent = atoi(buf);
-	}
+	if (fgets(buf, sizeof(buf), fp))
+		value = atoi(buf);
 	pclose(fp);
 
-	return percent;
+	return value;
 }
 
 static int
-set_brightness(int percent)
+get_brightness_raw(void)
+{
+	/* `brightnessctl g` returns raw value (e.g. 96000), not percent */
+	return read_int_cmd("brightnessctl -c " BACKLIGHT_DEV " g");
+}
+
+static int
+get_max_brightness(void)
+{
+	return read_int_cmd("brightnessctl -c " BACKLIGHT_DEV " m");
+}
+
+static int
+set_brightness_raw(int value)
 {
 	char cmd[64];
 
-	/* Clamp to valid range */
-	if (percent < MIN_BRIGHTNESS)
-		percent = MIN_BRIGHTNESS;
-	if (percent > MAX_BRIGHTNESS)
-		percent = MAX_BRIGHTNESS;
-
-	/* Set absolute brightness via brightnessctl */
 	snprintf(cmd, sizeof(cmd),
-	         "brightnessctl -c %s s %d%%",
-	         BACKLIGHT_DEV, percent);
+	         "brightnessctl -c %s s %d",
+	         BACKLIGHT_DEV, value);
 
-	/* Shell out to brightnessctl */
 	const char *argv[] = { "sh", "-c", cmd, NULL };
 	return exec_wait(argv);
 }
@@ -79,7 +80,7 @@ int
 main(int argc, char *argv[])
 {
 	int fd;
-	int current, new;
+	int current, max_raw, step_raw, min_raw, new, percent;
 	int direction = 0;
 
 	argv0 = argv[0];
@@ -111,29 +112,38 @@ main(int argc, char *argv[])
 		return 0;
 	}
 
-	/* Get current brightness */
-	current = get_brightness();
-	if (current < 0) {
+	/* Get current and max brightness in raw units */
+	current = get_brightness_raw();
+	max_raw = get_max_brightness();
+	if (current < 0 || max_raw <= 0) {
 		close(fd);
 		warn("failed to get brightness");
 		return 1;
 	}
 
-	/* Calculate new brightness with step */
-	new = current + (direction * STEP_SIZE);
+	/* Convert percent-based config to raw step/floor */
+	step_raw = max_raw * STEP_SIZE / 100;
+	if (step_raw < 1)
+		step_raw = 1;
+	min_raw = max_raw * MIN_BRIGHTNESS / 100;
 
-	/* Enforce floor (prevent black screen) */
-	if (new < MIN_BRIGHTNESS)
-		new = MIN_BRIGHTNESS;
-	/* Enforce ceiling */
-	if (new > MAX_BRIGHTNESS)
-		new = MAX_BRIGHTNESS;
+	/* Calculate new brightness in raw units */
+	new = current + (direction * step_raw);
+
+	/* Enforce floor (prevent black screen) and ceiling */
+	if (new < min_raw)
+		new = min_raw;
+	if (new > max_raw)
+		new = max_raw;
 
 	/* Set the new brightness */
-	set_brightness(new);
+	set_brightness_raw(new);
+
+	/* Compute percent for OSD */
+	percent = (new * 100 + max_raw / 2) / max_raw;
 
 	/* Send OSD notification with progress bar */
-	send_osd(new);
+	send_osd(percent);
 
 	/* Release lock */
 	flock(fd, LOCK_UN);
