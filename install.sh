@@ -25,7 +25,7 @@ fcitx5 fcitx5-configtool fcitx5-gtk fcitx5-mozc \
 libpulse pipewire pipewire-alsa pipewire-pulse wireplumber pamixer \
 brightnessctl flameshot xclip xsel xdotool \
 thunar thunar-volman gvfs gvfs-smb ntfs-3g \
-bluez bluez-utils blueberry \
+bluez bluez-utils blueman \
 networkmanager connman connman-gtk dhcpcd \
 arc-gtk-theme papirus-icon-theme lxappearance \
 vim neovim helix tmux btop neofetch \
@@ -40,6 +40,8 @@ AUR_DEPS="brave-bin betterlockscreen i3lock-color gnome-bluetooth wiremix-git"
 # supervisor variants on Artix (Arch ships systemd units inside base pkgs).
 UDEV_RULE_SRC="$REPO_DIR/udev/90-backlight.rules"
 UDEV_RULE_DST=/etc/udev/rules.d/90-backlight.rules
+KEYBOARD_CONF_SRC="$REPO_DIR/xorg/00-keyboard.conf"
+KEYBOARD_CONF_DST=/etc/X11/xorg.conf.d/00-keyboard.conf
 SUDO_KEEPALIVE_PID=""
 
 # ---------------------------------------------------------------- color + helpers (D-14)
@@ -206,6 +208,20 @@ install_udev_rule() {
         || warn "udevadm trigger -s backlight failed"
 }
 
+install_keyboard_conf() {
+    [ -r "$KEYBOARD_CONF_SRC" ] || die "$KEYBOARD_CONF_SRC not found in repo"
+
+    if [ -r "$KEYBOARD_CONF_DST" ] && sudo cmp -s "$KEYBOARD_CONF_SRC" "$KEYBOARD_CONF_DST"; then
+        skip "keyboard layout already installed and up to date: $KEYBOARD_CONF_DST"
+        return 0
+    fi
+
+    info "installing $KEYBOARD_CONF_DST (persistent br/abnt2 layout)"
+    sudo install -m 0644 -o root -g root "$KEYBOARD_CONF_SRC" "$KEYBOARD_CONF_DST" \
+        || die "failed to install $KEYBOARD_CONF_DST"
+    info "keyboard layout applies on next X server start (log out / reboot)"
+}
+
 enable_service() {
     _svc=power-profiles-daemon
 
@@ -315,6 +331,11 @@ install_dotfiles() {
     install_dotfile "$REPO_DIR/.xprofile"    "$HOME/.xprofile"
     install_dotfile "$REPO_DIR/dwm-start"    "$HOME/.local/bin/dwm-start"
     chmod +x "$HOME/.local/bin/dwm-start"
+    # fcitx5 seed config: rest on keyboard-br, mozc on demand, no WM hotkey
+    # clash. fcitx rewrites these on exit, so restart it after install
+    # (`fcitx5 -r -d`) to load the new values.
+    install_dotfile "$REPO_DIR/fcitx5/profile" "$HOME/.config/fcitx5/profile"
+    install_dotfile "$REPO_DIR/fcitx5/config"  "$HOME/.config/fcitx5/config"
 }
 
 WARN_COUNT=0
@@ -395,6 +416,22 @@ verify_install() {
         v_warn "/etc/udev/rules.d/90-backlight.rules not found"
     fi
 
+    # 14b. Keyboard layout config + live layout (br/abnt2)
+    if [ -r "$KEYBOARD_CONF_DST" ]; then
+        v_ok "keyboard layout config present: $KEYBOARD_CONF_DST"
+    else
+        v_warn "$KEYBOARD_CONF_DST not found — keyboard may default to us"
+    fi
+    if command -v setxkbmap >/dev/null 2>&1 && [ -n "${DISPLAY:-}" ]; then
+        if setxkbmap -query 2>/dev/null | grep -q 'layout: *br'; then
+            v_ok "active X keyboard layout: br"
+        else
+            v_warn "active X keyboard layout is not br — log out/in to apply $KEYBOARD_CONF_DST"
+        fi
+    else
+        v_info "no X display — skipping live keyboard layout check"
+    fi
+
     # 15. Dunst running
     if pgrep -x dunst >/dev/null 2>&1; then
         v_ok "dunst running"
@@ -425,6 +462,7 @@ main() {
     ensure_aur_helper
     install_pkgs
     install_udev_rule
+    install_keyboard_conf
     enable_service
     ensure_groups
     install_binaries
