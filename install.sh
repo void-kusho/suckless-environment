@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# suckless-environment installer (Arch + Artix only, POSIX sh)
+# suckless-environment installer (Arch + Artix + Guix, POSIX sh)
 # See .planning/phases/01-install-hardening-platform-detection/ for design notes.
 
 set -e
@@ -34,6 +34,27 @@ vlc discord spotify-launcher steam \
 ly zip unzip resvg"
 
 AUR_DEPS="brave-bin betterlockscreen i3lock-color gnome-bluetooth wiremix-git"
+
+# ---------------------------------------------------------------- Guix package lists
+# Guix uses different package names and has no AUR. Non-free packages
+# (steam, discord, spotify, brave) are skipped — user installs manually
+# via Nonguix channel or Flatpak after running install.sh.
+BUILD_DEPS_GUIX="gcc-toolchain make pkg-config git libxft libxinerama \
+libxrender freetype fontconfig harfbuzz imlib2 zlib xorg-server xinit"
+
+RUNTIME_DEPS_GUIX="\
+iosevka-nerd noto-fonts noto-fonts-emoji \
+feh picom dunst lxsession polkit-gnome \
+fcitx5 fcitx5-configtool fcitx5-gtk \
+pulseaudio pipewire pipewire-pulseaudio wireplumber pamixer \
+brightnessctl flameshot xclip xsel xdotool \
+thunar thunar-volman gvfs ntfs-3g \
+bluez blueman \
+network-manager connman dhcpcd \
+papirus-icon-theme lxappearance \
+vim neovim helix tmux btop neofetch \
+node openjdk \
+vlc resvg zip unzip linux-tools"
 
 # PPD_PKG, SERVICE_PKGS, INIT, AUR_HELPER set at runtime by
 # detect_distro / ensure_aur_helper. SERVICE_PKGS carries -openrc
@@ -78,19 +99,34 @@ detect_distro() {
             PPD_PKG="power-profiles-daemon-openrc"
             SERVICE_PKGS="bluez-openrc networkmanager-openrc connman-openrc ly-openrc"
             ;;
+        guix)
+            PPD_PKG=""
+            SERVICE_PKGS=""
+            ;;
         *)
-            die "unsupported distro: $ID (this installer supports arch and artix only)"
+            die "unsupported distro: $ID (this installer supports arch, artix, and guix)"
             ;;
     esac
-    if [ -d /run/openrc ]; then
+    if [ "$ID" = "guix" ]; then
+        if command -v herd >/dev/null 2>&1; then
+            INIT=shepherd
+        else
+            INIT=unknown
+        fi
+    elif [ -d /run/openrc ]; then
         INIT=openrc
     elif [ -d /run/systemd/system ]; then
         INIT=systemd
     else
         die "no live init detected (neither /run/openrc nor /run/systemd/system) — running in a chroot?"
     fi
-    command -v pacman >/dev/null 2>&1 || die "pacman not found on $ID — broken system"
-    info "distro: $ID / init: $INIT / ppd: $PPD_PKG"
+    if [ "$ID" != "guix" ]; then
+        command -v pacman >/dev/null 2>&1 || die "pacman not found on $ID — broken system"
+    fi
+    if [ "$ID" = "guix" ]; then
+        command -v guix >/dev/null 2>&1 || die "guix not found on $ID — broken system"
+    fi
+    info "distro: $ID / init: $INIT / ppd: ${PPD_PKG:-none}"
 }
 
 # ---------------------------------------------------------------- sudo keepalive (D-05)
@@ -113,6 +149,10 @@ sudo_keepalive_stop() {
 }
 
 ensure_aur_helper() {
+    if [ "$ID" = "guix" ]; then
+        skip "AUR helper: not needed on Guix"
+        return 0
+    fi
     if command -v paru >/dev/null 2>&1; then
         AUR_HELPER=paru
         skip "AUR helper: paru already installed"
@@ -178,6 +218,25 @@ bootstrap_aur_helper() {
 # ---------------------------------------------------------------- install steps — added in Plans 02/03
 
 install_pkgs() {
+    case "$ID" in
+        guix)
+            install_pkgs_guix
+            ;;
+        arch|artix)
+            install_pkgs_pacman
+            ;;
+    esac
+}
+
+install_pkgs_guix() {
+    info "installing guix packages via manifest"
+    info "manifest: $REPO_DIR/guix/manifest.scm"
+    guix package -m "$REPO_DIR/guix/manifest.scm" \
+        || die "guix package install failed"
+    info "packages installed — run 'guix home reconfigure guix/home.scm' for services"
+}
+
+install_pkgs_pacman() {
     info "installing pacman packages (build + runtime + PPD + service variants for $ID)"
     # shellcheck disable=SC2086   # intentional word-splitting on space-separated lists
     sudo pacman -S --needed --noconfirm $BUILD_DEPS $RUNTIME_DEPS $SERVICE_PKGS "$PPD_PKG" \
@@ -190,6 +249,11 @@ install_pkgs() {
 }
 
 install_udev_rule() {
+    if [ "$ID" = "guix" ]; then
+        skip "udev rule: managed declaratively via guix/system.scm"
+        info "  See guix/system.scm — brightnessctl udev rules are included"
+        return 0
+    fi
     [ -r "$UDEV_RULE_SRC" ] || die "$UDEV_RULE_SRC not found in repo"
 
     if [ -r "$UDEV_RULE_DST" ] && sudo cmp -s "$UDEV_RULE_SRC" "$UDEV_RULE_DST"; then
@@ -209,6 +273,11 @@ install_udev_rule() {
 }
 
 install_keyboard_conf() {
+    if [ "$ID" = "guix" ]; then
+        skip "keyboard config: managed declaratively via guix/system.scm"
+        info "  See guix/system.scm — keyboard-layout is set there"
+        return 0
+    fi
     [ -r "$KEYBOARD_CONF_SRC" ] || die "$KEYBOARD_CONF_SRC not found in repo"
 
     if [ -r "$KEYBOARD_CONF_DST" ] && sudo cmp -s "$KEYBOARD_CONF_SRC" "$KEYBOARD_CONF_DST"; then
@@ -246,6 +315,18 @@ enable_service() {
                     || warn "$_svc start failed — check 'rc-service $_svc status'"
             fi
             ;;
+        shepherd)
+            if [ -z "$_svc" ] || [ "$_svc" = "" ]; then
+                skip "power-profiles-daemon: managed declaratively via guix/home.scm"
+                info "  See guix/home.scm — PipeWire services are configured there"
+                return 0
+            fi
+            if command -v herd >/dev/null 2>&1; then
+                info "starting $_svc via shepherd"
+                herd start "$_svc" 2>/dev/null \
+                    || warn "herd start $_svc failed — check 'herd status $_svc'"
+            fi
+            ;;
         *)
             die "enable_service: unknown INIT=$INIT"
             ;;
@@ -276,19 +357,52 @@ ensure_groups() {
     warn "log out and back in to activate new group membership"
 }
 
+# Guix config.h generation — create distro-specific config.h files
+generate_guix_configs() {
+    if [ "$ID" != "guix" ]; then
+        return 0
+    fi
+    info "generating Guix-specific config.h files"
+
+    # dmenu-session: use slock instead of betterlockscreen
+    if [ ! -f "$REPO_DIR/utils/dmenu-session/config.h" ]; then
+        cp "$REPO_DIR/utils/dmenu-session/config.def.h" \
+           "$REPO_DIR/utils/dmenu-session/config.h"
+        info "created utils/dmenu-session/config.h (slock backend)"
+    fi
+
+    # dmenu-cpupower: use cpupower instead of power-profiles-daemon
+    if [ ! -f "$REPO_DIR/utils/dmenu-cpupower/config.h" ]; then
+        cp "$REPO_DIR/utils/dmenu-cpupower/config.def.h" \
+           "$REPO_DIR/utils/dmenu-cpupower/config.h"
+        # Enable cpupower backend
+        sed -i 's/#define USE_CPUPOWER 0/#define USE_CPUPOWER 1/' \
+            "$REPO_DIR/utils/dmenu-cpupower/config.h"
+        info "created utils/dmenu-cpupower/config.h (cpupower backend)"
+    fi
+
+    # dwm: set browser to brave via Flatpak
+    # The user can override by editing dwm/config.h directly
+    info "dwm browser: defaults to brave via Flatpak (edit dwm/config.h BROWSER_CMD to change)"
+}
+
 # INST-06: only install from utils/; never copy scripts/ to PATH.
 install_suckless_tool() {
     _dir=$1
-    info "building $_dir (as user — creates config.h with user ownership)"
-    make -C "$REPO_DIR/$_dir" clean \
+    _prefix="/usr/local"
+    if [ "$ID" = "guix" ]; then
+        _prefix="$HOME/.local"
+    fi
+    info "building $_dir (prefix: $_prefix)"
+    make -C "$REPO_DIR/$_dir" clean PREFIX="$_prefix" \
         || die "make -C $_dir clean failed"
     # If config.h is root-owned from a prior `sudo make install`, this step fails.
     # D-21 defers the chown fix; manual workaround:
     #   sudo chown "$USER:$USER" dwm/config.h st/config.h dmenu/config.h slstatus/config.h
-    make -C "$REPO_DIR/$_dir" \
+    make -C "$REPO_DIR/$_dir" PREFIX="$_prefix" \
         || die "make -C $_dir failed (check config.h ownership if it's root-owned)"
     info "installing $_dir (requires sudo)"
-    sudo make -C "$REPO_DIR/$_dir" install \
+    sudo make -C "$REPO_DIR/$_dir" install PREFIX="$_prefix" \
         || die "sudo make -C $_dir install failed"
 }
 
@@ -368,15 +482,29 @@ verify_install() {
     check_cmd "dunst"             dunst             "dunst not on PATH"
     check_cmd "brightnessctl"     brightnessctl     "brightnessctl not on PATH — brightness keys will fail"
     check_cmd "flameshot"         flameshot         "flameshot not on PATH — Print key screenshot will fail"
-    check_cmd "betterlockscreen"  betterlockscreen  "betterlockscreen missing — dmenu-session lock will fail"
-    check_cmd "powerprofilesctl"  powerprofilesctl  "powerprofilesctl missing — dmenu-cpupower will be non-functional"
     check_cmd "loginctl"          loginctl          "loginctl missing — session actions will fail"
 
-    # 10. PPD reachability (distinguishes installed-but-dead from missing)
-    if _out=$(powerprofilesctl get 2>/dev/null) && [ -n "$_out" ]; then
-        v_ok "power-profiles-daemon reachable (current profile: $_out)"
+    if [ "$ID" = "guix" ]; then
+        check_cmd "slock"             slock              "slock missing — dmenu-session lock will use fallback"
+        check_cmd "cpupower"          cpupower           "cpupower missing (install linux-tools) — dmenu-cpupower will be non-functional"
     else
-        v_warn "power-profiles-daemon unreachable — check 'systemctl status power-profiles-daemon' (Arch) or 'rc-service power-profiles-daemon status' (Artix)"
+        check_cmd "betterlockscreen"  betterlockscreen  "betterlockscreen missing — dmenu-session lock will fail"
+        check_cmd "powerprofilesctl"  powerprofilesctl  "powerprofilesctl missing — dmenu-cpupower will be non-functional"
+    fi
+
+    # 10. PPD reachability (distinguishes installed-but-dead from missing)
+    if [ "$ID" = "guix" ]; then
+        if _out=$(cpupower frequency-info -p 2>/dev/null) && [ -n "$_out" ]; then
+            v_ok "cpupower reachable (current governor: $_out)"
+        else
+            v_warn "cpupower unreachable — check 'cpupower frequency-info'"
+        fi
+    else
+        if _out=$(powerprofilesctl get 2>/dev/null) && [ -n "$_out" ]; then
+            v_ok "power-profiles-daemon reachable (current profile: $_out)"
+        else
+            v_warn "power-profiles-daemon unreachable — check 'systemctl status power-profiles-daemon' (Arch) or 'rc-service power-profiles-daemon status' (Artix)"
+        fi
     fi
 
     # 11. Session active
@@ -410,26 +538,32 @@ verify_install() {
     fi
 
     # 14. Udev rule
-    if [ -r /etc/udev/rules.d/90-backlight.rules ]; then
+    if [ "$ID" = "guix" ]; then
+        v_info "udev rule: on Guix, managed via config.scm (see install output above)"
+    elif [ -r /etc/udev/rules.d/90-backlight.rules ]; then
         v_ok "udev rule present: /etc/udev/rules.d/90-backlight.rules"
     else
         v_warn "/etc/udev/rules.d/90-backlight.rules not found"
     fi
 
     # 14b. Keyboard layout config + live layout (br/abnt2)
-    if [ -r "$KEYBOARD_CONF_DST" ]; then
-        v_ok "keyboard layout config present: $KEYBOARD_CONF_DST"
+    if [ "$ID" = "guix" ]; then
+        v_info "keyboard layout: on Guix, managed via config.scm (see install output above)"
     else
-        v_warn "$KEYBOARD_CONF_DST not found — keyboard may default to us"
-    fi
-    if command -v setxkbmap >/dev/null 2>&1 && [ -n "${DISPLAY:-}" ]; then
-        if setxkbmap -query 2>/dev/null | grep -q 'layout: *br'; then
-            v_ok "active X keyboard layout: br"
+        if [ -r "$KEYBOARD_CONF_DST" ]; then
+            v_ok "keyboard layout config present: $KEYBOARD_CONF_DST"
         else
-            v_warn "active X keyboard layout is not br — log out/in to apply $KEYBOARD_CONF_DST"
+            v_warn "$KEYBOARD_CONF_DST not found — keyboard may default to us"
         fi
-    else
-        v_info "no X display — skipping live keyboard layout check"
+        if command -v setxkbmap >/dev/null 2>&1 && [ -n "${DISPLAY:-}" ]; then
+            if setxkbmap -query 2>/dev/null | grep -q 'layout: *br'; then
+                v_ok "active X keyboard layout: br"
+            else
+                v_warn "active X keyboard layout is not br — log out/in to apply $KEYBOARD_CONF_DST"
+            fi
+        else
+            v_info "no X display — skipping live keyboard layout check"
+        fi
     fi
 
     # 15. Dunst running
@@ -448,16 +582,65 @@ verify_install() {
     # D-17: NEVER exit non-zero on warnings.
 }
 
-# ---------------------------------------------------------------- install steps — added in Plans 02/03
+# ---------------------------------------------------------------- Guix non-free notice
+print_guix_nonfree_notice() {
+    if [ "$ID" != "guix" ]; then
+        return 0
+    fi
+    hr
+    info "Guix declarative configuration"
+    hr
+    echo "All configurations are in guix/ directory:"
+    echo ""
+    echo "  guix/channels.scm  — Channel definitions (copy to ~/.config/guix/channels.scm)"
+    echo "  guix/system.scm    — System configuration (keyboard, udev, display manager)"
+    echo "  guix/home.scm      — Home configuration (packages, pipewire, dunst)"
+    echo "  guix/manifest.scm  — Package manifest (already used by install.sh)"
+    echo ""
+    echo "To make the system fully reproducible:"
+    echo ""
+    echo "  1. Copy channels.scm:"
+    echo "     cp guix/channels.scm ~/.config/guix/channels.scm"
+    echo "     guix pull"
+    echo ""
+    echo "  2. Apply system config (requires sudo):"
+    echo "     sudo guix system reconfigure guix/system.scm"
+    echo ""
+    echo "  3. Apply home config:"
+    echo "     guix home reconfigure guix/home.scm"
+    echo ""
+    hr
+    info "Non-free software — manual install required"
+    hr
+    echo "The following packages are not in Guix main repos and were skipped:"
+    echo ""
+    echo "  Flatpak setup (required for Brave, Discord, Spotify):"
+    echo "               flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
+    echo ""
+    echo "  Steam:       Install via Nonguix channel"
+    echo "               https://gitlab.com/nonguix/nonguix"
+    echo ""
+    echo "  Discord:     flatpak install com.discordapp.Discord"
+    echo ""
+    echo "  Spotify:     flatpak install com.spotify.Client"
+    echo ""
+    echo "  Brave:       flatpak install com.brave.Browser"
+    echo ""
+    echo "  Nerd Fonts:  Install via Nonguix channel"
+    echo "               guix install nerd-fonts"
+    hr
+}
 
 # ---------------------------------------------------------------- main
 main() {
     require_non_root
     detect_distro
-    sudo_keepalive_start
-    trap 'sudo_keepalive_stop' EXIT
-    trap 'sudo_keepalive_stop; exit 130' INT
-    trap 'sudo_keepalive_stop; exit 143' TERM
+    if [ "$ID" != "guix" ]; then
+        sudo_keepalive_start
+        trap 'sudo_keepalive_stop' EXIT
+        trap 'sudo_keepalive_stop; exit 130' INT
+        trap 'sudo_keepalive_stop; exit 143' TERM
+    fi
 
     ensure_aur_helper
     install_pkgs
@@ -465,8 +648,10 @@ main() {
     install_keyboard_conf
     enable_service
     ensure_groups
+    generate_guix_configs
     install_binaries
     install_dotfiles
+    print_guix_nonfree_notice
     verify_install
     info "install complete"
 }

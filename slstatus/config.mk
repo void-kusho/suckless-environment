@@ -7,8 +7,10 @@ VERSION = 1.1
 PREFIX = /usr/local
 MANPREFIX = $(PREFIX)/share/man
 
-X11INC = /usr/X11R6/include
-X11LIB = /usr/X11R6/lib
+PKG_CONFIG = pkg-config
+
+X11INC = $(shell $(PKG_CONFIG) --variable=includedir xorg-server 2>/dev/null || echo /usr/X11R6/include)
+X11LIB = $(shell $(PKG_CONFIG) --variable=libdir xorg-server 2>/dev/null || echo /usr/X11R6/lib)
 
 # flags
 CPPFLAGS = -I$(X11INC) -D_DEFAULT_SOURCE -DVERSION=\"${VERSION}\"

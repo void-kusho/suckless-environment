@@ -18,7 +18,14 @@ xrandr --output eDP-1 --mode 1920x1080 --rate 60 --pos 0x0 \
 # Warp pointer onto DP-1 so the first EnterNotify keeps focus there too.
 xdotool mousemove 2880 540
 
-lxpolkit &
+# Launch polkit agent — try lxpolkit first, fall back to alternatives
+if command -v lxpolkit >/dev/null 2>&1; then
+    lxpolkit &
+elif [ -x /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 ]; then
+    /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 &
+elif [ -x /run/current-system/profile/libexec/polkit-mate-authentication-agent-1 ]; then
+    /run/current-system/profile/libexec/polkit-mate-authentication-agent-1 &
+fi
 fcitx5 -d
 dmenu-clipd &
 dunst &

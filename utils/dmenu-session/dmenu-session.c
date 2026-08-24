@@ -6,6 +6,7 @@
 
 #include "../common/dmenu.h"
 #include "../common/util.h"
+#include "config.h"
 
 static int
 confirm(const char *prompt, char *const extra_argv[])
@@ -29,22 +30,19 @@ static void
 action_lock(void)
 {
 	const char *display;
-	const char *pgrep_cmd[] = { "pgrep", "-f", "betterlockscreen", NULL };
-	const char *lock_cmd[] = {
-		"betterlockscreen", "-l", "--display", "1",
-		"--blur", "0.8", NULL
-	};
+	const char *pgrep_cmd[] = { "pgrep", "-f", LOCK_PGREP_TARGET, NULL };
+	const char *lock_cmd[] = { LOCK_CMD, NULL };
 
-	/* Validate DISPLAY before spawning X11-dependent betterlockscreen */
+	/* Validate DISPLAY before spawning X11-dependent lock screen */
 	display = getenv("DISPLAY");
 	if (!display || !*display) {
 		warn("DISPLAY not set");
 		return;
 	}
 
-	/* Prevent duplicate betterlockscreen instances.
-	 * Use -f (not -x) because "betterlockscreen" is 16 chars,
-	 * exceeding Linux's 15-char comm field (TASK_COMM_LEN). */
+	/* Prevent duplicate lock screen instances.
+	 * Use -f (not -x) because some lock screens exceed
+	 * Linux's 15-char comm field (TASK_COMM_LEN). */
 	if (exec_wait(pgrep_cmd) == 0)
 		return;
 

@@ -3,6 +3,12 @@
 #include <X11/XF86keysym.h>
 #include <X11/keysym.h>
 
+/* Browser command — default to brave via Flatpak on Guix,
+ * override to icecat or brave native on Arch/Artix via CFLAGS or edit this file. */
+#ifndef BROWSER_CMD
+#define BROWSER_CMD "flatpak run com.brave.Browser"
+#endif
+
 // Define commands bright and volume
 static const char *brightnessup[]   = { "brightness-notify", "up", NULL };
 static const char *brightnessdown[] = { "brightness-notify", "down", NULL };
@@ -103,7 +109,7 @@ static const Key keys[] = {
     { 0, XF86XK_AudioMute,          spawn,     {.v = volumemute } },
     { 0, XK_Print,                  spawn,     SHCMD("flameshot gui") },
     { MODKEY,                       XK_e,      spawn,          SHCMD("thunar") },
-    { MODKEY| ShiftMask,            XK_b,      spawn,          SHCMD("brave") },
+    { MODKEY| ShiftMask,            XK_b,      spawn,          SHCMD(BROWSER_CMD) },
 	{ MODKEY,                       XK_z,      zoom,           {0} },
 	{ MODKEY,                       XK_Tab,    view,           {0} },
 	{ MODKEY,                       XK_q,      killclient,     {0} },
