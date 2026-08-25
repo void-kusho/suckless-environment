@@ -25,7 +25,8 @@ nix/packages.nix            one derivation per tool + utils suite
 nix/module.nix              NixOS module: programs.suckless-environment.enable
 default.nix                 entrypoint for classic configuration.nix users
 flake.nix                   flake entrypoint (same module + packages)
-hosts/minimal.nix           template configuration.nix
+hosts/minimal.nix           template configuration.nix (generic machine)
+hosts/artix-btw.nix         this laptop: Intel TigerLake specifics
 dunst/ fcitx5/ picom/       config seeds deployed declaratively on NixOS
 ```
 
@@ -160,6 +161,24 @@ programs.suckless-environment.compositor.enable = false;
 
 Media keys: volume ±5% / mute via pactl, brightness via
 brightness-notify (needs `video` group).
+
+## Hardware layer
+
+The module is hardware-agnostic. Machine-specific decisions live in a
+host file — see `hosts/artix-btw.nix` for this laptop (Intel TigerLake
+i5-1135G7 / Iris Xe, NVMe, BAT1, intel_backlight, dual-display
+eDP-1 + DP-1@180Hz):
+
+* Intel microcode updates
+* VA-API video acceleration via `intel-media-driver` (iHD)
+* `modesetting` Xorg driver (not the legacy xf86-video-intel)
+* `services.thermald` — TigerLake throttling protection
+* weekly `fstrim` for the SSD, `fwupd` for firmware updates
+
+Copy the host file to `/etc/nixos/hosts/`, import it from
+`configuration.nix`, add your generated `hardware-configuration.nix`,
+and put your monitor layout in `~/.config/suckless/autostart.sh`
+(the exact eDP-1/DP-1@180Hz lines are commented inside the host file).
 
 ## Customizing (NixOS)
 
