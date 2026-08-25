@@ -88,14 +88,16 @@ sudo nixos-rebuild switch
 First run compiles all four tools from source — a couple of minutes.
 This single toggle sets up everything:
 
-* X11 server (started manually — no display manager runs at boot)
-* dwm as the default `startx` session
-* dwm, dmenu, st, slstatus + pamixer, xprop, xrandr
+* X11 server — autostarts at boot **only if** a display manager is
+  enabled (see step 4b); otherwise you launch it yourself with `startx`
+* dwm + slstatus as one session, registered as the system default
+  (`none+dwm`) so any display manager can pick it up
+* dmenu, st, slstatus + pamixer, xprop, xrandr
 * JetBrains Mono + Noto CJK fonts (Japanese tags and status text)
 * PipeWire audio so pamixer volume control works
 * NetworkManager
 
-### 4. Start using it
+### 4a. Start using it (no display manager)
 
 Log in on any TTY and run:
 
@@ -103,11 +105,12 @@ Log in on any TTY and run:
 startx
 ```
 
-dwm comes up with slstatus in the bar. That's the whole session: no
-display manager, nothing autostarts X until you ask for it.
+The `startx` command is installed by the module (NixOS's built-in
+startx pseudo-DM). It generates a proper session: systemd user services
+start, dwm + slstatus come up, everything is cleaned up when you quit.
 
 **Optional** — start X automatically when logging in on TTY 1 by adding
-this to `/etc/profile` (or your shell profile):
+this to your shell profile:
 
 ```sh
 if [ "$(tty)" = "/dev/tty1" ] && [ -z "$DISPLAY" ]; then
@@ -117,6 +120,22 @@ fi
 
 TTYs 2–6 stay plain shells.
 
+### 4b. Or use Ly (or another display manager)
+
+The module plays nice with display managers. To boot straight into Ly:
+
+```nix
+services.displayManager.ly.enable = true;
+```
+
+Then `sudo nixos-rebuild switch && sudo reboot`. Ly will appear at boot
+with **dwm preselected as the default session** — enabling Ly flips X
+autostart on automatically. greetd, sddm and cosmic-greeter are detected
+the same way; for anything else add `services.xserver.autorun = true;`.
+
+You get one consistent session either way: the same dwm+slstatus pair,
+whether started by `startx` or by Ly.
+
 ### Troubleshooting
 
 * `startx` fails with a black screen: check `~/.local/share/xorg/Xorg.0.log`
@@ -124,8 +143,11 @@ TTYs 2–6 stay plain shells.
   the default modesetting driver.
 * Japanese tags render as boxes: confirm the toggle is actually enabled
   (`nixos-option programs.suckless-environment.enable` should print true).
-* Volume shows `n/a`: PipeWire needs your user session; make sure you ran
-  `startx` after a normal login (not via `su`).
+* Volume shows `n/a`: PipeWire needs your user session; make sure you
+  started the session after a normal login (not via `su`).
+* Using a greeter not in the list above (e.g. some custom greetd
+  frontend): it should still work — just add
+  `services.xserver.autorun = true;` so X starts at boot.
 
 ### Flakes variant
 
