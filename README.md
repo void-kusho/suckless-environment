@@ -40,7 +40,7 @@ nix-env -iA nixos.git        # temporary, without editing configuration.nix
 
 ```sh
 cd /etc/nixos
-sudo git clone https://github.com/gabrielchboff/suckless-environment.git
+sudo git clone https://github.com/void-kusho/suckless-environment.git
 ```
 
 You now have `/etc/nixos/suckless-environment` next to your
@@ -134,7 +134,7 @@ instead — the module and packages are identical:
 
 ```nix
 {
-  inputs.suckless-env.url = "github:gabrielchboff/suckless-environment";
+  inputs.suckless-env.url = "github:void-kusho/suckless-environment";
 
   outputs = { self, nixpkgs, suckless-env }: {
     nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
