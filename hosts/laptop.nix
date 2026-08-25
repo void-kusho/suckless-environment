@@ -56,6 +56,9 @@
   # Firmware update tooling (`fwupdmgr refresh && fwupdmgr update`).
   services.fwupd.enable = true;
 
+  # Flatpak apps (the `modrinth` bash alias uses it).
+  services.flatpak.enable = true;
+
   # ------------------------------------------------------------------
   # Desktop toggle + user
   # ------------------------------------------------------------------

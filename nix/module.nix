@@ -217,6 +217,8 @@ in
         # bluetooth stack (blueman available; pair via cli or blueman-manager)
         blueman
 
+        neofetch # greeting on new st terminals (see bash/bashrc)
+
         # standard editor, config from helix/config.toml
         helix
 
@@ -254,6 +256,17 @@ in
       };
     };
     services.displayManager.defaultSession = lib.mkDefault "none+dwm";
+
+    # Bash: the user's interactive shell configuration (history, shopts,
+    # Tokyo Night colors/prompt, aliases, neofetch greeting). Injected
+    # into every interactive bash via /etc/bashrc.
+    programs.bash = {
+      interactiveShellInit = builtins.readFile ../bash/bashrc;
+      completion.enable = true;
+    };
+    # NixOS defaults EDITOR to nano at the same priority; this desktop is
+    # deliberately Helix-centric.
+    environment.variables.EDITOR = lib.mkForce "hx";
 
     # Japanese input: fcitx5 + mozc. The option exports GTK_IM_MODULE /
     # QT_IM_MODULE / XMODIFIERS for every session, so no .xprofile is

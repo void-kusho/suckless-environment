@@ -29,6 +29,7 @@ hosts/minimal.nix           template configuration.nix (generic machine)
 hosts/laptop.nix             this laptop: Intel TigerLake specifics
 dunst/ fcitx5/ picom/       config seeds deployed declaratively on NixOS
 helix/                      Helix editor config, seeded into ~/.config
+bash/bashrc                 interactive bash config (prompt, colors, aliases)
 ```
 
 ## Full install guide (NixOS minimal + git)
@@ -89,6 +90,9 @@ First run compiles all tools from source. The toggle sets up:
   Iosevka Nerd Font + Noto CJK + emoji
 * **Helix** (`hx`) as the standard editor — your `helix/config.toml` is
   seeded into `~/.config/helix` on first launch
+* **Bash** — your interactive config (Tokyo Night prompt/colors,
+  history, aliases, neofetch greeting) is injected via
+  `programs.bash.interactiveShellInit`; `EDITOR=hx` system-wide
 
 ### 4. Log in
 
