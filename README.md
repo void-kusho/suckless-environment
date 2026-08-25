@@ -115,7 +115,20 @@ xrandr --output eDP-1 --mode 1920x1080 --rate 60 --pos 0x0 \
        --output DP-1 --primary --mode 1920x1080 --rate 180 --pos 1920x0
 xdotool mousemove 2880 540
 feh --no-fehbg --bg-fill ~/wallpapers/sushi_original.png
-# picom -b   # uncomment if you want the compositor
+```
+
+### Compositor (vsync + animations)
+
+The session starts **picom** automatically with a minimal config:
+tear-free rendering (`vsync`), and subtle animations — windows slide up
+when opened, down when closed (~0.15s). No shadows, transparency or
+blur, and fullscreen apps bypass compositing, so nothing else changes.
+
+Config lives in `picom/picom.conf` (deployed to `/etc/xdg/picom/`);
+a user `~/.config/picom/picom.conf` overrides it. To disable entirely:
+
+```nix
+programs.suckless-environment.compositor.enable = false;
 ```
 
 ### Troubleshooting

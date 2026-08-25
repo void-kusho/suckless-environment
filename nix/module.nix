@@ -52,7 +52,8 @@ let
 
     start_daemon() {
       command -v "$1" >/dev/null || return 0
-      pgrep -x "$1" >/dev/null || "$@" &
+      # pgrep matches process names only -> strip any directory prefix.
+      pgrep -x "''${1##*/}" >/dev/null || "$@" &
     }
 
     # Session daemons (idempotent across dwm restarts / re-logins).
@@ -62,6 +63,10 @@ let
     start_daemon ${packages.utils}/bin/dmenu-clipd
     start_daemon ${pkgs.dunst}/bin/dunst
     start_daemon ${pkgs.flameshot}/bin/flameshot
+    ${lib.optionalString cfg.compositor.enable ''
+      # Compositor: vsync + subtle open/close animations (picom/picom.conf).
+      start_daemon ${pkgs.picom}/bin/picom -b
+    ''}
 
     # Battery monitor: 30 second tick, same cadence as Artix.
     (
@@ -116,6 +121,12 @@ in
         (personal apps like discord, steam, editors, ...).
       '';
       example = lib.literalExpression "[ pkgs.discord pkgs.steam ]";
+    };
+
+    compositor = {
+      enable = lib.mkEnableOption "the picom compositor (vsync + subtle open/close animations), started with the session" // {
+        default = true;
+      };
     };
   };
 
@@ -195,6 +206,10 @@ in
 
     # Notification daemon settings (urgency levels, geometry, theme).
     environment.etc."xdg/dunst/dunstrc".source = ../dunst/dunstrc;
+
+    # Compositor settings: vsync + subtle open/close animations. Deployed
+    # system-wide; a user ~/.config/picom/picom.conf overrides it.
+    environment.etc."xdg/picom/picom.conf".source = ../picom/picom.conf;
 
     # Fonts: Iosevka Nerd Font everywhere in the configs; Noto CJK covers
     # the Japanese tag glyphs and status text; emoji for notifications.
