@@ -1,0 +1,27 @@
+[Groups/0]
+# Group Name
+Name=Default
+# Layout
+Default Layout=br
+# Default Input Method
+# Rest on the plain Brazilian keyboard (NOT mozc). With DefaultIM=mozc the
+# group woke up routing keys through the Japanese engine, which broke ABNT2
+# input ("keyboard went English"). mozc stays available as Item1, reachable
+# on demand via the trigger key (Control+Alt+space).
+DefaultIM=keyboard-br
+
+[Groups/0/Items/0]
+# Name
+Name=keyboard-br
+# Layout
+# Explicit br so fcitx never falls back to a different default layout.
+Layout=br
+
+[Groups/0/Items/1]
+# Name
+Name=mozc
+# Layout
+Layout=
+
+[GroupOrder]
+0=Default

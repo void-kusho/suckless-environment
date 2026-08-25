@@ -64,14 +64,17 @@ static const char unknown_str[] = "n/a";
  * wifi_essid          WiFi ESSID                      interface name (wlan0)
  * wifi_perc           WiFi signal in percent          interface name (wlan0)
  */
+/* Tokyo Night colors for status2d */
+/* bg: #1a1b26 | fg: #a9b1d6 | blue: #7aa2f7 | cyan: #7dcfff | green: #9ece6a | orange: #ff9e64 | red: #f7768e | purple: #bb9af7 | yellow: #e0af68 */
+
 static const struct arg args[] = {
-	/* function        format                argument */
-	{ cpu_perc,        " 処理 %s%%",         NULL },
-	{ ram_perc,        " | 記憶 %s%%",       NULL },
-	{ battery_perc,    " | 電池 %s%%",       "BAT1" },
-	{ battery_state,   "%s",                 "BAT1" },
-	{ run_command,     " | 音量 %s%%",       "pamixer --get-volume" },
-	{ datetime,        " | %s ",             "%Y年%m月%d日 %H:%M" },
+	/* function        format                                              argument */
+	{ cpu_perc,        "^c#7aa2f7^ ^c#a9b1d6^ %s%%",                      NULL },
+	{ ram_used,        "^c#16161e^ | ^c#bb9af7^ ^c#a9b1d6^ %s",         NULL },
+	{ battery_perc,    "^c#16161e^ | ^c#9ece6a^ ^c#a9b1d6^ %s%%",         "BAT1" },
+	{ battery_state,   "^c#a9b1d6^%s",                                     "BAT1" },
+	{ run_command,     "^c#16161e^ | ^c#7dcfff^ ^c#a9b1d6^ %s",           "[ \"$(pamixer --get-mute)\" = 'true' ] && echo 'Muted' || pamixer --get-volume" },
+	{ datetime,        " | %s |",          "%Y年%m月%d日 %H:%M" },
 };
 
 /*

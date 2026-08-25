@@ -933,9 +933,8 @@ drawbar(Monitor *m)
 		stw = getsystraywidth();
 
 	/* draw status first so it can be overdrawn by tags later */
-	if (m == selmon) { /* status is only drawn on selected monitor */
+	if (m == selmon) /* status is only drawn on selected monitor */
 		tw = m->ww - drawstatusbar(m, bh, stext);
-	}
 
 	resizebarwin(m);
 	for (c = m->clients; c; c = c->next) {
@@ -2002,8 +2001,7 @@ spawn(const Arg *arg)
 {
 	struct sigaction sa;
 
-	if (arg->v == dmenucmd)
-		dmenumon[0] = '0' + selmon->num;
+	dmenumon[0] = '0' + selmon->num;
 	if (fork() == 0) {
 		if (dpy)
 			close(ConnectionNumber(dpy));

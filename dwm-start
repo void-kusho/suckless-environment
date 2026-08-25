@@ -1,0 +1,48 @@
+#!/bin/sh
+
+export PATH="$HOME/.local/bin:$PATH"
+
+# Source system xinitrc scripts
+if [ -d /etc/X11/xinit/xinitrc.d ] ; then
+    for f in /etc/X11/xinit/xinitrc.d/?*.sh ; do
+        [ -x "$f" ] && . "$f"
+    done
+    unset f
+fi
+
+# Display: DP-1 primary @180Hz (right), laptop eDP-1 @60Hz (left).
+# --primary makes DP-1 Xinerama monitor 0, so dwm starts focused on it.
+# (lxrandr saved this to ~/.config/autostart, but nothing runs autostart on dwm.)
+xrandr --output eDP-1 --mode 1920x1080 --rate 60 --pos 0x0 \
+       --output DP-1 --primary --mode 1920x1080 --rate 180 --pos 1920x0
+# Warp pointer onto DP-1 so the first EnterNotify keeps focus there too.
+xdotool mousemove 2880 540
+
+lxpolkit &
+fcitx5 -d
+dmenu-clipd &
+dunst &
+
+# Audio stack (no service manager starts these on this setup)
+pipewire &
+pipewire-pulse &
+wireplumber &
+
+# Pre-warm the flameshot daemon so the Print-key `flameshot gui` always
+# hits a live daemon (cold dbus-activation races and the overlay never opens).
+flameshot &
+
+# Battery monitor (30 second tick)
+while true; do
+    battery-notify
+    sleep 30
+done &
+
+# Start status bar
+while true; do
+    slstatus
+    sleep 1
+done &
+
+feh --no-fehbg --bg-fill ~/wallpapers/sushi_original.png &
+exec dwm

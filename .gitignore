@@ -3,4 +3,7 @@
 *.orig
 *.rej
 result
-result-*
+result-
+utils/brightness-notify/brightness-notify
+utils/*/test-*
+tests/test-*
