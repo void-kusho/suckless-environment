@@ -115,6 +115,22 @@ xdotool mousemove 2880 540
 feh --no-fehbg --bg-fill ~/wallpapers/sushi_original.png
 ```
 
+### Thunar: terminal & archives
+
+Thunar's context menus work out of the box, no custom actions needed:
+
+* **Open Terminal Here** — Thunar's native action runs `exo-open`,
+  which reads `/etc/xdg/xfce4/helpers.rc` (`TerminalEmulator=st`) and
+  finds st through the `st.desktop` entry the module ships. Works on
+  any folder, spaces in paths included.
+* **Extract Here / Create Archive…** — provided by
+  `thunar-archive-plugin`, which delegates to **xarchiver**; backends
+  `p7zip`, `zip`, `unzip` cover zip/tar.gz/tar.xz/7z and more.
+
+If you previously had hand-made custom actions in
+`~/.config/Thunar/uca.xml`, delete them (or start from an empty
+`<actions/>`) — the native entries replace them.
+
 ### Compositor (vsync + animations)
 
 The session starts **picom** automatically with a minimal config:

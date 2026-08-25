@@ -107,6 +107,25 @@ let
     ACTION=="add", SUBSYSTEM=="leds", KERNEL=="*::kbd_backlight", RUN+="${pkgs.coreutils}/bin/chgrp input /sys/class/leds/%k/brightness"
     ACTION=="add", SUBSYSTEM=="leds", KERNEL=="*::kbd_backlight", RUN+="${pkgs.coreutils}/bin/chmod g+w /sys/class/leds/%k/brightness"
   '';
+
+  # st is not shipped with a .desktop file upstream; exo (Thunar's
+  # "Open Terminal Here") needs one advertising TerminalEmulator to be
+  # able to pick it.
+  stDesktopEntry = pkgs.writeTextFile {
+    name = "st-desktop-entry";
+    destination = "/share/applications/st.desktop";
+    text = ''
+      [Desktop Entry]
+      Type=Application
+      Name=st
+      GenericName=Terminal
+      Comment=Simple terminal (suckless)
+      Exec=st
+      Icon=utilities-terminal
+      Categories=System;TerminalEmulator;
+      StartupWMClass=st-256color
+    '';
+  };
 in
 
 {
@@ -158,8 +177,24 @@ in
         xfce.thunar
         brave
 
+        # thunar integrations
+        #   * "Open Terminal Here": exo-open resolves the terminal through
+        #     helpers.rc (seeded below) -> the st desktop entry also added
+        #     below.
+        #   * "Extract Here" / "Create Archive...": thunar-archive-plugin
+        #     delegates to xarchiver; p7zip/zip/unzip are its backends.
+        xfce.exo
+        xfce.thunar-archive-plugin
+        xarchiver
+        p7zip
+        zip
+        unzip
+
         # bluetooth stack (blueman available; pair via cli or blueman-manager)
         blueman
+
+        # desktop entry so exo/gio can find st as a TerminalEmulator
+        stDesktopEntry
       ]
       ++ lib.optionals (cfg.extraPackages != [ ]) cfg.extraPackages;
 
@@ -211,6 +246,16 @@ in
     # Compositor settings: vsync + subtle open/close animations. Deployed
     # system-wide; a user ~/.config/picom/picom.conf overrides it.
     environment.etc."xdg/picom/picom.conf".source = ../picom/picom.conf;
+
+    # Preferred applications for Xfce helpers (exo-open, used by Thunar's
+    # native "Open Terminal Here"). Values are desktop-file ids. A user
+    # ~/.config/xfce4/helpers.rc overrides this.
+    environment.etc."xdg/xfce4/helpers.rc".text = ''
+      TerminalEmulator=st
+      TerminalEmulatorDismissed=true
+      WebBrowser=brave-browser
+      WebBrowserDismissed=true
+    '';
 
     # Fonts: Iosevka Nerd Font everywhere in the configs; Noto CJK covers
     # the Japanese tag glyphs and status text; emoji for notifications.
