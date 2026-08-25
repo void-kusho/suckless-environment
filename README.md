@@ -27,6 +27,7 @@ default.nix                 entrypoint for classic configuration.nix users
 flake.nix                   flake entrypoint (same module + packages)
 hosts/minimal.nix           template configuration.nix (generic machine)
 hosts/laptop.nix             this laptop: Intel TigerLake specifics
+hosts/vm.nix                 disposable test VM (see below)
 dunst/ fcitx5/ picom/       config seeds deployed declaratively on NixOS
 helix/                      Helix editor config, seeded into ~/.config
 bash/bashrc                 interactive bash config (prompt, colors, aliases)
@@ -201,6 +202,39 @@ Copy the host file to `/etc/nixos/hosts/`, import it from
 `configuration.nix`, add your generated `hardware-configuration.nix`,
 and put your monitor layout in `~/.config/suckless/autostart.sh`
 (the exact eDP-1/DP-1@180Hz lines are commented inside the host file).
+
+## Test drive in a VM (disposable, production untouched)
+
+`hosts/vm.nix` is a self-contained throwaway host — it never touches the
+production configs. Build and run it on **any machine with Nix + flakes**
+(the first build downloads ~1 GB from cache.nixos.org):
+
+```sh
+git clone -b nixos https://github.com/void-kusho/suckless-environment
+cd suckless-environment
+nix build .#vm
+./result/bin/run-nixos-vm
+```
+
+A QEMU window opens; log in as **you** / password **test**, then run
+`startx`. The VM shares your host's `/nix/store`, so rebuilds after
+config changes are fast:
+
+```sh
+nix build .#vm && ./result/bin/run-nixos-vm
+```
+
+Headless (serial console only, e.g. for scripted checks):
+
+```sh
+QEMU_OPTS="-display none -serial stdio" ./result/bin/run-nixos-vm
+```
+
+What a VM run validates: boot chain, session startup (startx → dwm +
+slstatus + picom), bash prompt/config, `hx` seeding, Thunar terminal &
+archive actions, dunst/fcitx5, fonts (Japanese tags), NetworkManager.
+What it cannot: real Iris Xe VA-API, your monitors @180 Hz, backlight,
+battery BAT1 — those need bare metal.
 
 ## Customizing (NixOS)
 
