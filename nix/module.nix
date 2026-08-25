@@ -2,19 +2,28 @@
 #
 #   programs.suckless-environment.enable = true;
 #
-# Design notes:
-#   * Works with ANY login flow:
-#       - Display managers (Ly, greetd, sddm, ...): dwm shows up as the
-#         default session ("none+dwm").
-#       - No display manager: log in on a TTY and run `startx`. NixOS's
-#         built-in startx pseudo-DM generates /etc/X11/xinit/xinitrc,
-#         which starts systemd user services (PipeWire etc.), runs the
-#         same dwm session, and cleans up on exit.
-#   * X autostarts at boot only when a display manager is enabled.
-#   * This module also pulls in everything the tools need at RUNTIME:
-#       - fonts for `monospace` and the Japanese tags / status line
-#       - PipeWire (+ pulse interface) so pamixer works for slstatus
-#       - NetworkManager so nmcli/nmtui are usable out of the box
+# This reproduces the Artix environment end to end:
+#
+#   * Tools:    dwm (+ Fibonacci, systray, ...), dmenu (+ desktoponly),
+#               st (+ kitty-graphics, ligatures, ...), slstatus
+#   * Utils:    battery-notify, brightness-notify, dmenu-session,
+#               dmenu-cpupower, dmenu-clip, dmenu-clipd
+#   * Session:  dunst, clipboard daemon, polkit agent, fcitx5 (mozc),
+#               battery monitor loop, slstatus supervisor loop --
+#               all started by the dwm launcher, exactly like dwm-start
+#   * Desktop:  thunar, brave, flameshot, feh, betterlockscreen,
+#               brightnessctl, picom, xdotool, pactl ...
+#   * System:   br/abnt2 keyboard, backlight udev rules,
+#               power-profiles-daemon (for dmenu-cpupower), bluetooth,
+#               PipeWire audio, NetworkManager, CJK/Nerd fonts
+#
+# Login flows supported:
+#   * Display manager (Ly/greetd/sddm/...): dwm is the default session.
+#   * No display manager: log into a TTY and run `startx`.
+#
+# Machine-specific bits (monitor layouts, wallpaper) do NOT belong here:
+# the session sources ~/.config/suckless/autostart.sh if present -- see
+# README ("Autostart hook").
 {
   config,
   lib,
@@ -27,12 +36,49 @@ let
 
   packages = import ./packages.nix { inherit pkgs; };
 
-  # dwm + its status bar as ONE launcher, so both startx and display
-  # managers get identical sessions. pkill clears leftovers from a
-  # previous logout/restart so bars never duplicate.
+  # dwm launcher: starts the session daemons and supervisor loops that
+  # dwm-start runs on Artix, then execs the real window manager. Used by
+  # BOTH login flows (display managers see it as the "none+dwm" session;
+  # startx reaches it through the generated xinitrc).
+  #
+  # Differences from Artix's dwm-start, both intentional:
+  #   * no manual pipewire/pulse/wireplumber: systemd user services do it
+  #   * monitor layout + wallpaper moved to ~/.config/suckless/autostart.sh
   dwm = pkgs.writeShellScriptBin "dwm" ''
+    # Machine-specific setup first (monitors, wallpaper, pointer warp).
+    if [ -f "$HOME/.config/suckless/autostart.sh" ]; then
+      . "$HOME/.config/suckless/autostart.sh"
+    fi
+
+    start_daemon() {
+      command -v "$1" >/dev/null || return 0
+      pgrep -x "$1" >/dev/null || "$@" &
+    }
+
+    # Session daemons (idempotent across dwm restarts / re-logins).
     ${pkgs.procps}/bin/pkill -x slstatus 2>/dev/null || true
-    ${packages.slstatus}/bin/slstatus &
+    start_daemon ${pkgs.lxsession}/bin/lxpolkit
+    start_daemon ${pkgs.fcitx5}/bin/fcitx5 -d
+    start_daemon ${packages.utils}/bin/dmenu-clipd
+    start_daemon ${pkgs.dunst}/bin/dunst
+    start_daemon ${pkgs.flameshot}/bin/flameshot
+
+    # Battery monitor: 30 second tick, same cadence as Artix.
+    (
+      while :; do
+        ${packages.utils}/bin/battery-notify
+        sleep 30
+      done
+    ) &
+
+    # Status bar supervisor: relaunch slstatus if it ever dies.
+    (
+      while :; do
+        ${packages.slstatus}/bin/slstatus
+        sleep 1
+      done
+    ) &
+
     exec ${packages.dwm}/bin/dwm
   '';
 
@@ -46,21 +92,65 @@ let
     || (config.services.displayManager.sddm or { enable = false; }).enable
     || (config.services.displayManager.cosmic-greeter or { enable = false; }).enable
     || (config.services.greetd or { enable = false; }).enable;
+
+  # Backlight permissions for the `video` group (and kbd backlight for
+  # `input`). sysfs attributes have no /dev node, hence RUN+= chgrp/chmod
+  # instead of udev GROUP=/MODE= directives. See udev/90-backlight.rules.
+  backlightUdevRules = ''
+    ACTION=="add", SUBSYSTEM=="backlight", RUN+="${pkgs.coreutils}/bin/chgrp video /sys/class/backlight/%k/brightness"
+    ACTION=="add", SUBSYSTEM=="backlight", RUN+="${pkgs.coreutils}/bin/chmod g+w /sys/class/backlight/%k/brightness"
+    ACTION=="add", SUBSYSTEM=="leds", KERNEL=="*::kbd_backlight", RUN+="${pkgs.coreutils}/bin/chgrp input /sys/class/leds/%k/brightness"
+    ACTION=="add", SUBSYSTEM=="leds", KERNEL=="*::kbd_backlight", RUN+="${pkgs.coreutils}/bin/chmod g+w /sys/class/leds/%k/brightness"
+  '';
 in
 
 {
-  options.programs.suckless-environment.enable = lib.mkEnableOption "the suckless-environment desktop (dwm + dmenu + st + slstatus)";
+  options.programs.suckless-environment = {
+    enable = lib.mkEnableOption "the suckless-environment desktop (dwm + st + dmenu + slstatus + utils)";
+
+    extraPackages = lib.mkOption {
+      type = lib.types.listOf lib.types.package;
+      default = [ ];
+      description = ''
+        Extra packages added to the system alongside the environment
+        (personal apps like discord, steam, editors, ...).
+      '';
+      example = lib.literalExpression "[ pkgs.discord pkgs.steam ]";
+    };
+  };
 
   config = lib.mkIf cfg.enable {
-    environment.systemPackages = with pkgs; [
-      dwm
-      packages.dmenu
-      packages.st
-      packages.slstatus
-      pamixer # called by slstatus for the volume readout
-      xorg.xprop # inspect WM_CLASS for dwm rules
-      xorg.xrandr # monitor configuration
-    ];
+    environment.systemPackages =
+      with pkgs;
+      [
+        dwm # session launcher (starts daemons, execs real dwm)
+
+        packages.utils
+        packages.slstatus
+        packages.st
+        packages.dmenu
+
+        # session daemons & helpers referenced above or by keybinds
+        dunst # notifications (battery/brightness alerts)
+        lxsession # provides lxpolkit, the polkit authentication agent
+        flameshot # Print-key screenshots
+        feh # wallpaper (from autostart hook)
+        brightnessctl # brightness engine used by brightness-notify
+        xdotool # pointer warp (autostart hook)
+        xclip
+        xsel
+        picom # compositor (installed; launch from autostart hook if wanted)
+        pulseaudio # provides pactl for the volume media keys
+        betterlockscreen # lock screen used by dmenu-session
+
+        # applications bound in dwm/config.h
+        xfce.thunar
+        brave
+
+        # bluetooth stack (blueman available; pair via cli or blueman-manager)
+        blueman
+      ]
+      ++ lib.optionals (cfg.extraPackages != [ ]) cfg.extraPackages;
 
     services.xserver = {
       enable = true;
@@ -81,21 +171,54 @@ in
         enable = lib.mkDefault (!displayManagerEnabled);
         generateScript = lib.mkDefault true;
       };
+
+      # Brazilian ABNT2 layout, pinned at the X server level (replaces
+      # xorg/00-keyboard.conf from the Artix install).
+      xkb = {
+        layout = "br";
+        model = "abnt2";
+        variant = "abnt2";
+      };
     };
     services.displayManager.defaultSession = lib.mkDefault "none+dwm";
 
-    # config.h asks for `monospace`; Noto CJK covers the Japanese tag
-    # glyphs and the status line.
+    # Japanese input: fcitx5 + mozc. The option exports GTK_IM_MODULE /
+    # QT_IM_MODULE / XMODIFIERS for every session (replaces .xprofile).
+    i18n.inputMethod = {
+      type = "fcitx5";
+      fcitx5.addons = with pkgs; [ fcitx5-mozc ];
+    };
+    # Seed configuration (rest on br keyboard, mozc on demand). Deployed
+    # system-wide; fcitx5 copies/rewrites these into ~/.config on change.
+    environment.etc."xdg/fcitx5/profile".source = ../fcitx5/profile;
+    environment.etc."xdg/fcitx5/config".source = ../fcitx5/config;
+
+    # Notification daemon settings (urgency levels, geometry, theme).
+    environment.etc."xdg/dunst/dunstrc".source = ../dunst/dunstrc;
+
+    # Fonts: Iosevka Nerd Font everywhere in the configs; Noto CJK covers
+    # the Japanese tag glyphs and status text; emoji for notifications.
     fonts.packages = with pkgs; [
-      jetbrains-mono
+      nerd-fonts.iosevka
       noto-fonts-cjk-sans
+      noto-fonts-emoji
     ];
     fonts.fontconfig.defaultFonts.monospace = [
-      "JetBrains Mono"
+      "Iosevka Nerd Font Mono"
       "Noto Sans Mono CJK JP"
     ];
 
-    # Audio: slstatus reads volume through pamixer (PulseAudio protocol).
+    # Backlight access for the video/input groups (brightnessctl +
+    # brightness-notify). Add your user to those groups!
+    services.udev.extraRules = backlightUdevRules;
+
+    # CPU profile switching for dmenu-cpupower (Super+p).
+    services.power-profiles-daemon.enable = lib.mkDefault true;
+
+    # Bluetooth stack (pairing tools: bluetoothctl, blueman-manager).
+    hardware.bluetooth.enable = lib.mkDefault true;
+
+    # Audio: pamixer/pactl talk PulseAudio; PipeWire implements it.
     security.rtkit.enable = true;
     services.pipewire = {
       enable = true;

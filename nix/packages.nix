@@ -1,4 +1,4 @@
-# All four tools of this environment as Nix derivations, built from the
+# All tools of this environment as Nix derivations, built from the
 # vendored sources in this repository (each uses its own Makefile and the
 # customized config.h sitting next to it).
 #
@@ -46,12 +46,15 @@ in
     version = "0.9.3";
     src = ../st;
     nativeBuildInputs = with pkgs; [
-      pkg-config # st's config.mk queries pkg-config for font paths
+      pkg-config # config.mk queries pkg-config for imlib2/fonts/harfbuzz
       ncurses # provides `tic`, used to compile st.info
     ];
     buildInputs = with pkgs; [
       xorg.libX11
       xorg.libXft
+      xorg.libXrender # kitty-graphics patch links -lXrender
+      imlib2 # kitty-graphics patch (graphics.c)
+      harfbuzz # ligatures patch (hb.c)
       fontconfig
       freetype
     ];
@@ -73,5 +76,17 @@ in
     version = "1.1";
     src = ../slstatus;
     buildInputs = with pkgs; [ xorg.libX11 ];
+  };
+
+  # Custom C utilities: battery-notify, brightness-notify, dmenu-session,
+  # dmenu-cpupower, dmenu-clip, dmenu-clipd. Built by utils/Makefile.
+  utils = mkSuckless {
+    name = "suckless-utils";
+    version = "1.0";
+    src = ../utils;
+    buildInputs = with pkgs; [
+      xorg.libX11 # dmenu-clipd
+      xorg.libXfixes # dmenu-clipd
+    ];
   };
 }

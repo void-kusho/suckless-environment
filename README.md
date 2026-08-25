@@ -1,254 +1,190 @@
 # suckless-environment
 
-A hardened, C-native utility suite for a dwm-based desktop environment targeting Arch Linux (systemd) and Artix Linux (OpenRC + elogind).
+A complete dwm-based desktop environment, built the suckless way and
+packaged for **NixOS** (declarative) and installable on **Artix/Arch**
+(`install.sh`).
 
-## Project Purpose
+| Component | Version | Customization |
+|-----------|---------|---------------|
+| dwm | 6.8 | alwayscenter, attachaside, restartsig, status2d+systray, Fibonacci layouts; Super modkey; Tokyo Night colors; Japanese tags |
+| st | 0.9.3 | kitty-graphics, ligatures (harfbuzz), clickurl, clipboard, expected-anysize |
+| dmenu | 5.4 | desktoponly patch (+ `dmenu_run_desktop`) |
+| slstatus | 1.1 | status2d Tokyo Night bar: CPU / RAM / battery / volume (pamixer) / Japanese datetime |
+| utils | 1.0 | 6 custom C utilities: battery-notify, brightness-notify, dmenu-session, dmenu-cpupower, dmenu-clip, dmenu-clipd |
 
-This project provides a complete desktop environment built on the suckless philosophy: minimal dependencies, compile-time configuration, and fast, safe C programs. The core value proposition is:
+On NixOS everything is built from the vendored sources in this repo by
+plain `stdenv.mkDerivation` wrappers that call each tool's own Makefile —
+the classic suckless workflow, fully declarative.
 
-- **One install.sh works on both Arch and Artix** — no separate scripts, no conditional logic the user must understand
-- **Every user-facing utility is a fast, safe C program** — no fragile shell scripts, no Python overhead, no runtime config files
+## Repository layout
 
-The environment includes dwm (window manager), st (terminal), dmenu (application launcher), slstatus (status bar), and custom utilities for battery alerts, brightness control, clipboard management, session/power management, and CPU profile switching.
-
-## Supported Distributions
-
-- **Arch Linux** — systemd init system
-- **Artix Linux** — OpenRC init system with elogind
-
-No other distributions are supported. No Wayland, no BSD, no macOS.
-
-## Quick Start
-
-### One-Line Install
-
-```bash
-git clone https://github.com/YOUR_USERNAME/suckless-environment.git
-cd suckless-environment
-./install.sh
+```
+dwm/ dmenu/ st/ slstatus/   vendored sources + your config.h (edit these!)
+utils/                      custom C utilities + shared common code
+nix/lib.nix                 tiny wrapper: runs each Makefile with PREFIX set
+nix/packages.nix            one derivation per tool + utils suite
+nix/module.nix              NixOS module: programs.suckless-environment.enable
+default.nix                 entrypoint for classic configuration.nix users
+flake.nix                   flake entrypoint (same module + packages)
+hosts/minimal.nix           template configuration.nix
+install.sh                  Arch/Artix installer (not used on NixOS)
+dunst/ fcitx5/ udev/ xorg/  config seeds deployed declaratively on NixOS
 ```
 
-### Review Before Running
+## Full install guide (NixOS minimal + git)
 
-```bash
-git clone https://github.com/YOUR_USERNAME/suckless-environment.git
-cd suckless-environment
-less install.sh   # review before running
-./install.sh
+Assumes NixOS minimal already installed, booting to a TTY login.
+
+### 1. Get this repo into /etc/nixos
+
+```sh
+cd /etc/nixos
+sudo git clone https://github.com/void-kusho/suckless-environment.git
+sudo git checkout nixos          # the NixOS packaging lives on this branch
 ```
 
-The install script will:
-1. Detect your distribution (Arch or Artix)
-2. Install required dependencies via pacman
-3. Build and install all suckless tools to `/usr/local/bin`
-4. Build and install custom utilities to `~/.local/bin`
-5. Copy configuration files to their proper locations
+### 2. Enable it in /etc/nixos/configuration.nix
+
+```nix
+imports = [
+  ./hardware-configuration.nix
+  ./suckless-environment              # <- add this line
+];
+
+programs.suckless-environment.enable = true;
+
+users.users.myuser = {
+  isNormalUser = true;
+  extraGroups = [ "wheel" "networkmanager" "video" "input" ];  # video/input = brightness
+};
+```
+
+Personal apps can ride along through the module's escape hatch:
+
+```nix
+programs.suckless-environment.extraPackages = with pkgs; [
+  discord steam vlc neovim tmux btop   # whatever you need
+];
+```
+
+(See `hosts/minimal.nix` for a complete reference file.)
+
+### 3. Apply
+
+```sh
+sudo nixos-rebuild switch
+```
+
+First run compiles all tools from source. The toggle sets up:
+
+* **Session**: dwm+slstatus registered as default session (`none+dwm`),
+  started by a launcher that brings up dunst, the clipboard daemon,
+  lxpolkit, fcitx5 (mozc), flameshot, the battery monitor loop
+* **Tools & utils**: all four suckless tools + the six C utilities
+* **Apps**: thunar, brave, betterlockscreen, feh, brightnessctl,
+  picom, xdotool, xclip/xsel, pactl
+* **Input**: br/abnt2 keyboard layout, fcitx5+mozc Japanese input
+* **System**: PipeWire audio, NetworkManager, bluetooth,
+  power-profiles-daemon (Super+p menu), backlight udev rules,
+  Iosevka Nerd Font + Noto CJK + emoji
+
+### 4. Log in
+
+**With Ly** (or greetd/sddm/cosmic-greeter) — enable it next to the
+toggle; X autostart flips on automatically:
+
+```nix
+services.displayManager.ly.enable = true;
+```
+
+Ly appears at boot with **dwm preselected**.
+
+**Without any display manager** — log into a TTY and run `startx`
+(installed for you; the generated xinitrc starts the same session).
+
+### Autostart hook (machine-specific bits)
+
+Monitor layouts and wallpapers differ per machine, so they are NOT
+hardcoded. Create `~/.config/suckless/autostart.sh` — the session
+sources it before anything else. Example (dual monitor, from Artix's
+dwm-start):
+
+```sh
+# ~/.config/suckless/autostart.sh
+xrandr --output eDP-1 --mode 1920x1080 --rate 60 --pos 0x0 \
+       --output DP-1 --primary --mode 1920x1080 --rate 180 --pos 1920x0
+xdotool mousemove 2880 540
+feh --no-fehbg --bg-fill ~/wallpapers/sushi_original.png
+# picom -b   # uncomment if you want the compositor
+```
+
+### Troubleshooting
+
+* Brightness keys do nothing: your user must be in `video` (and `input`
+  for keyboard backlight); re-login after adding.
+* Japanese input dead in some app: fcitx5 env vars are exported per
+  session — make sure the app was launched inside the session, not via
+  `su`.
+* Volume shows Muted/n/a: PipeWire user services must be running
+  (`systemctl --user status pipewire pipewire-pulse wireplumber`).
+* Using a greeter outside Ly/greetd/sddm/cosmic-greeter: add
+  `services.xserver.autorun = true;`.
 
 ## Keybindings
 
-The window manager uses **Super (Windows key)** as the primary modifier (MODKEY).
+`Mod` = Super. Highlights (full list in `dwm/config.h`):
 
-### Launch Applications
+| Key | Action |
+|-----|--------|
+| `Mod+d` | dmenu_run_desktop (app launcher) |
+| `Mod+Return` | st |
+| `Mod+v` | clipboard history (dmenu-clip) |
+| `Mod+p` | CPU power profile (dmenu-cpupower) |
+| `Ctrl+Alt+Delete` | session menu: lock/logout/reboot/shutdown |
+| `Mod+e` / `Mod+Shift+b` | thunar / brave |
+| `Print` | flameshot gui |
+| `Mod+[1-9]`, `Mod+0` | tags / all |
+| `Mod+t/f/m/r/Shift+r` | tile / float / monocle / spiral / rotated-spiral |
+| `Mod+Shift+q` (quit) · `Mod+Ctrl+Shift+q` (force quit) | exit dwm |
 
-| Key | Action | Description |
-|-----|--------|-------------|
-| `Super+d` | dmenu_run | Launch application |
-| `Super+Return` | st | Open terminal |
-| `Super+e` | thunar | Open file manager |
-| `Super+Shift+b` | brave | Launch browser |
+Media keys: volume ±5% / mute via pactl, brightness via
+brightness-notify (needs `video` group).
 
-### Window Management
+## Customizing (NixOS)
 
-| Key | Action | Description |
-|-----|--------|-------------|
-| `Super+j` | focusstack +1 | Focus next window |
-| `Super+k` | focusstack -1 | Focus previous window |
-| `Super+h` | setmfact -0.05 | Shrink master area |
-| `Super+l` | setmfact +0.05 | Expand master area |
-| `Super+z` | zoom | Bring window to master |
-| `Super+q` | killclient | Close focused window |
-| `Super+t` | setlayout tile | Tile layout |
-| `Super+f` | setlayout float | Floating layout |
-| `Super+m` | setlayout monocle | Monocle layout |
-| `Super+space` | setlayout | Cycle layouts |
-| `Super+Shift+space` | togglefloating | Toggle floating |
+Everything visual/behavioral lives in the per-tool `config.h` files and
+`utils/*/config.h`:
 
-### Tag Navigation
-
-| Key | Action | Description |
-|-----|--------|-------------|
-| `Super+[1-9]` | view | Switch to tag |
-| `Super+0` | view | View all tags |
-| `Super+Shift+[1-9]` | tag | Send window to tag |
-| `Super+Shift+0` | tag | Send window to all tags |
-
-### Monitor Navigation
-
-| Key | Action | Description |
-|-----|--------|-------------|
-| `Super+,` | focusmon -1 | Focus previous monitor |
-| `Super+.` | focusmon +1 | Focus next monitor |
-| `Super+Shift+,` | tagmon -1 | Send window to previous monitor |
-| `Super+Shift+.` | tagmon +1 | Send window to next monitor |
-
-### System
-
-| Key | Action | Description |
-|-----|--------|-------------|
-| `Super+b` | togglebar | Toggle status bar |
-| `Super+Tab` | view | View last tag |
-| `Super+v` | dmenu-clip | Clipboard history |
-| `Super+p` | dmenu-cpupower | CPU power profile |
-| `Ctrl+Alt+Delete` | dmenu-session | Session menu (lock/logout/reboot/shutdown) |
-| `Super+Shift+q` | quit | Exit dwm |
-| `Super+Ctrl+Shift+q` | quit (1) | Force quit dwm |
-
-### Media Keys
-
-| Key | Action | Description |
-|-----|--------|-------------|
-| `Print` | flameshot gui | Screenshot (region select, annotate, copy) |
-| `Brightness Up` | brightness-notify up | Increase brightness |
-| `Brightness Down` | brightness-notify down | Decrease brightness |
-| `Volume Up` | pactl set-sink-volume +5% | Increase volume |
-| `Volume Down` | pactl set-sink-volume -5% | Decrease volume |
-| `Volume Mute` | pactl set-sink-mute toggle | Toggle mute |
-
-## Utilities
-
-### battery-notify
-Monitors battery level and sends notifications via dunst when low. Designed to run from cron or a timer.
-
-### brightness-notify
-Adjusts display brightness using brightnessctl and shows an OSD notification.
-
-### dmenu-clip
-Clipboard history browser. Shows cached clipboard entries via dmenu, lets you restore any entry.
-
-### dmenu-clipd
-Clipboard daemon that watches for clipboard changes and caches them to disk. Runs as a background service.
-
-### dmenu-cpupower
-CPU power profile selector. Uses power-profiles-daemon to switch between performance, balanced, and power-saving modes.
-
-### dmenu-session
-Session menu for lock screen, logout, reboot, and shutdown. Uses loginctl for session management.
-
-## Troubleshooting
-
-### Issue 1: "command not found" for dependencies
-
-**Symptom:** After running install.sh, you get "command not found" errors when trying to run tools.
-
-**Diagnosis:**
-```bash
-which dmenu st dwm slstatus   # check if binaries are installed
-echo $PATH                    # verify ~/.local/bin is in PATH
+```sh
+$EDITOR dwm/config.h
+sudo nixos-rebuild switch
 ```
 
-**Fix:** Ensure `base-devel` is installed:
-```bash
-sudo pacman -Syu base-devel
+No other file needs to change — derivations always build what is in the
+source tree.
+
+## Maintenance
+
+* **Update a tool**: replace its vendored source with the new release,
+  re-apply your `config.h` (and patches), bump `version` in
+  `nix/packages.nix`.
+* **Patch dwm/st**: apply the `.diff` by hand, keep the patch file in
+  `<tool>/patches/`, commit both together.
+* **Format Nix code**: `nix develop -c nixfmt nix/ hosts/ *.nix`
+* Build artifacts are gitignored.
+
+## Building packages standalone
+
+Without NixOS at all:
+
+```sh
+nix-build nix/packages.nix -A st      # result/bin/st
+nix build .#utils                     # all six C utilities
 ```
 
-If using bash, add to `~/.bashrc`:
-```bash
-export PATH="$HOME/.local/bin:$PATH"
-```
+## Artix / Arch
 
-### Issue 2: AUR helper fails
-
-**Symptom:** install.sh fails when trying to build AUR packages (betterlockscreen, brave-bin).
-
-**Diagnosis:**
-```bash
-which yay paru   # check if AUR helper is installed
-```
-
-**Fix:** Install yay or paru manually first:
-```bash
-# Option 1: Install yay
-sudo pacman -Syu git && git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si
-
-# Option 2: Install paru
-sudo pacman -Syu git && git clone https://aur.archlinux.org/paru.git && cd paru && makepkg -si
-
-# Option 3: Use pacman directly for dependencies
-sudo pacman -Syu --noconfirm <package>
-```
-
-### Issue 3: brightnessctl permissions
-
-**Symptom:** Brightness keys don't work, or brightnessctl returns "No devices found".
-
-**Diagnosis:**
-```bash
-brightnessctl -l                    # list available devices
-groups                              # check your groups
-ls -la /sys/class/backlight/        # check backlight permissions
-```
-
-**Fix:** Add user to video group and ensure udev rules are applied:
-```bash
-sudo usermod -aG video $USER
-# Log out and back in for group membership to take effect
-
-# If using brightnessctl with setuid, verify:
-ls -la /usr/bin/brightnessctl
-```
-
-### Issue 4: Session doesn't start
-
-**Symptom:** After install, running startx or entering desktop from display manager doesn't show dwm.
-
-**Diagnosis:**
-```bash
-cat ~/.xprofile
-cat ~/.local/bin/dwm-start
-```
-
-**Fix:** Ensure dwm-start is executable and referenced:
-```bash
-chmod +x ~/.local/bin/dwm-start
-# In ~/.xprofile or as xinitrc:
-exec ~/.local/bin/dwm-start
-```
-
-### Issue 5: dmenu utilities not found
-
-**Symptom:** Keybindings like Super+v, Super+p don't open menus.
-
-**Diagnosis:**
-```bash
-which dmenu-clip dmenu-cpupower dmenu-session
-ls -la ~/.local/bin/
-```
-
-**Fix:** Build and install utils:
-```bash
-cd utils
-make
-make install
-```
-
-## Contributing
-
-For contributor documentation, AI assistant context, and project roadmap, see:
-
-- [CLAUDE.md](./CLAUDE.md) — AI assistant context and project specifications
-- [.planning/](.planning/) — Project roadmap, phase documentation, and requirements traceability
-
-## Screenshots
-
-![dwm bar with slstatus](docs/screenshots/screenshot-dwm-bar.png)
-*Status bar showing CPU, RAM, battery, and other metrics via slstatus*
-
-![dmenu application launcher](docs/screenshots/screenshot-dmenu.png)
-*dmenu open with filtered program list*
-
-![dunst notification](docs/screenshots/screenshot-dunst.png)
-* dunst notification example*
-
-## License
-
-See individual LICENSE files in each subdirectory (dwm/, st/, dmenu/, slstatus/, utils/).
+Run `./install.sh` as your normal user (it asks for sudo when needed).
+It installs packages, builds tools to `/usr/local/bin`, utilities to
+`~/.local/bin`, deploys dotfiles, the backlight udev rule and the
+keyboard conf, then verifies the result. See `docs/VM-VERIFICATION.md`.

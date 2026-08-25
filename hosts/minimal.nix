@@ -1,11 +1,10 @@
 # Template for a MINIMAL NixOS machine running this suckless environment.
 #
-# Fresh-install flow (channels, no flakes needed):
-#   1. Boot the NixOS minimal ISO, partition + mount, then
-#        nixos-generate-config --root /mnt
-#   2. Put this repo at /mnt/etc/nixos/suckless-environment
+# Fresh-install flow:
+#   1. nixos-generate-config --root /mnt
+#   2. Put this repo at /mnt/etc/nixos/suckless-environment (branch: nixos)
 #   3. Merge into /mnt/etc/nixos/configuration.nix:
-#        imports = [ ./suckless-environment ];   # merge with existing imports
+#        imports = [ ./suckless-environment ];
 #        programs.suckless-environment.enable = true;
 #   4. nixos-install && reboot
 #   5. Log in on the TTY and run:  startx
@@ -32,10 +31,21 @@
     extraGroups = [
       "wheel"
       "networkmanager"
+      "video" # brightness keys
+      "input" # keyboard backlight
     ];
   };
 
   programs.suckless-environment.enable = true;
+
+  # Personal apps, riding along with the environment:
+  # programs.suckless-environment.extraPackages = with pkgs; [ discord steam ];
+
+  # Boot straight into Ly instead of using startx from the TTY:
+  # services.displayManager.ly.enable = true;
+
+  # Machine-specific session setup (monitors, wallpaper) lives in
+  # ~/.config/suckless/autostart.sh -- see README "Autostart hook".
 
   # Set this to the NixOS release you FIRST installed; do not change it
   # afterwards without reading the release notes.
