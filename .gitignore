@@ -1,0 +1,6 @@
+# build artifacts
+*.o
+*.orig
+*.rej
+result
+result-*
