@@ -2,7 +2,7 @@
 #
 #   programs.suckless-environment.enable = true;
 #
-# This reproduces the Artix environment end to end:
+# What it provides:
 #
 #   * Tools:    dwm (+ Fibonacci, systray, ...), dmenu (+ desktoponly),
 #               st (+ kitty-graphics, ligatures, ...), slstatus
@@ -10,7 +10,7 @@
 #               dmenu-cpupower, dmenu-clip, dmenu-clipd
 #   * Session:  dunst, clipboard daemon, polkit agent, fcitx5 (mozc),
 #               battery monitor loop, slstatus supervisor loop --
-#               all started by the dwm launcher, exactly like dwm-start
+#               all started by the dwm launcher
 #   * Desktop:  thunar, brave, flameshot, feh, betterlockscreen,
 #               brightnessctl, picom, xdotool, pactl ...
 #   * System:   br/abnt2 keyboard, backlight udev rules,
@@ -36,14 +36,14 @@ let
 
   packages = import ./packages.nix { inherit pkgs; };
 
-  # dwm launcher: starts the session daemons and supervisor loops that
-  # dwm-start runs on Artix, then execs the real window manager. Used by
-  # BOTH login flows (display managers see it as the "none+dwm" session;
-  # startx reaches it through the generated xinitrc).
+  # dwm launcher: starts the session daemons and supervisor loops, then
+  # execs the real window manager. Used by BOTH login flows (display
+  # managers see it as the "none+dwm" session; startx reaches it through
+  # the generated xinitrc).
   #
-  # Differences from Artix's dwm-start, both intentional:
+  # Design notes:
   #   * no manual pipewire/pulse/wireplumber: systemd user services do it
-  #   * monitor layout + wallpaper moved to ~/.config/suckless/autostart.sh
+  #   * monitor layout + wallpaper live in ~/.config/suckless/autostart.sh
   dwm = pkgs.writeShellScriptBin "dwm" ''
     # Machine-specific setup first (monitors, wallpaper, pointer warp).
     if [ -f "$HOME/.config/suckless/autostart.sh" ]; then
@@ -68,7 +68,7 @@ let
       start_daemon ${pkgs.picom}/bin/picom -b
     ''}
 
-    # Battery monitor: 30 second tick, same cadence as Artix.
+    # Battery monitor: 30 second tick.
     (
       while :; do
         ${packages.utils}/bin/battery-notify
@@ -100,7 +100,7 @@ let
 
   # Backlight permissions for the `video` group (and kbd backlight for
   # `input`). sysfs attributes have no /dev node, hence RUN+= chgrp/chmod
-  # instead of udev GROUP=/MODE= directives. See udev/90-backlight.rules.
+  # instead of udev GROUP=/MODE= directives.
   backlightUdevRules = ''
     ACTION=="add", SUBSYSTEM=="backlight", RUN+="${pkgs.coreutils}/bin/chgrp video /sys/class/backlight/%k/brightness"
     ACTION=="add", SUBSYSTEM=="backlight", RUN+="${pkgs.coreutils}/bin/chmod g+w /sys/class/backlight/%k/brightness"
@@ -183,8 +183,8 @@ in
         generateScript = lib.mkDefault true;
       };
 
-      # Brazilian ABNT2 layout, pinned at the X server level (replaces
-      # xorg/00-keyboard.conf from the Artix install).
+      # Brazilian ABNT2 layout, pinned declaratively at the X server
+      # level -- no /etc/X11/xorg.conf.d snippets needed.
       xkb = {
         layout = "br";
         model = "abnt2";
@@ -194,7 +194,8 @@ in
     services.displayManager.defaultSession = lib.mkDefault "none+dwm";
 
     # Japanese input: fcitx5 + mozc. The option exports GTK_IM_MODULE /
-    # QT_IM_MODULE / XMODIFIERS for every session (replaces .xprofile).
+    # QT_IM_MODULE / XMODIFIERS for every session, so no .xprofile is
+    # needed.
     i18n.inputMethod = {
       type = "fcitx5";
       fcitx5.addons = with pkgs; [ fcitx5-mozc ];

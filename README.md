@@ -26,7 +26,7 @@ nix/module.nix              NixOS module: programs.suckless-environment.enable
 default.nix                 entrypoint for classic configuration.nix users
 flake.nix                   flake entrypoint (same module + packages)
 hosts/minimal.nix           template configuration.nix (generic machine)
-hosts/artix-btw.nix         this laptop: Intel TigerLake specifics
+hosts/laptop.nix             this laptop: Intel TigerLake specifics
 dunst/ fcitx5/ picom/       config seeds deployed declaratively on NixOS
 ```
 
@@ -105,8 +105,7 @@ Ly appears at boot with **dwm preselected**.
 
 Monitor layouts and wallpapers differ per machine, so they are NOT
 hardcoded. Create `~/.config/suckless/autostart.sh` — the session
-sources it before anything else. Example (dual monitor, from Artix's
-dwm-start):
+sources it before anything else. Example (dual monitor laptop):
 
 ```sh
 # ~/.config/suckless/autostart.sh
@@ -165,7 +164,7 @@ brightness-notify (needs `video` group).
 ## Hardware layer
 
 The module is hardware-agnostic. Machine-specific decisions live in a
-host file — see `hosts/artix-btw.nix` for this laptop (Intel TigerLake
+host file — see `hosts/laptop.nix` for this laptop (Intel TigerLake
 i5-1135G7 / Iris Xe, NVMe, BAT1, intel_backlight, dual-display
 eDP-1 + DP-1@180Hz):
 
