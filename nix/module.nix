@@ -126,6 +126,30 @@ let
       StartupWMClass=st-256color
     '';
   };
+
+  # Helix: declarative editor configuration. Helix reads its config from
+  # exactly one place -- ~/.config/helix -- with no /etc/xdg fallback and
+  # no env override (helix-loader hardcodes it), so we ship the config as
+  # a seed that the hx wrapper copies into ~/.config/helix on FIRST run
+  # (classic /etc/skel semantics). Later edits in ~/.config are yours and
+  # survive rebuilds; delete the dir to re-seed from the repo.
+  helixSeed = pkgs.runCommand "helix-seed" { } ''
+    mkdir -p $out/helix/themes
+    install ${../helix/config.toml} $out/helix/config.toml
+    install ${../helix/themes/catpuccin_mocha.toml} $out/helix/themes/catpuccin_mocha.toml
+  '';
+
+  helix = pkgs.writeShellScriptBin "hx" ''
+    SEED=${helixSeed}/helix
+    CFG="''${XDG_CONFIG_HOME:-$HOME/.config}/helix"
+    if [ ! -f "$CFG/config.toml" ]; then
+      mkdir -p "$CFG"
+      cp "$SEED/config.toml" "$CFG/config.toml"
+      cp -r "$SEED/themes" "$CFG/themes"
+      echo "hx: seeded $CFG from ${helixSeed}"
+    fi
+    exec ${pkgs.helix}/bin/hx "$@"
+  '';
 in
 
 {
@@ -192,6 +216,9 @@ in
 
         # bluetooth stack (blueman available; pair via cli or blueman-manager)
         blueman
+
+        # standard editor, config from helix/config.toml
+        helix
 
         # desktop entry so exo/gio can find st as a TerminalEmulator
         stDesktopEntry

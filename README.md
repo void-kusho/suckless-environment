@@ -28,6 +28,7 @@ flake.nix                   flake entrypoint (same module + packages)
 hosts/minimal.nix           template configuration.nix (generic machine)
 hosts/laptop.nix             this laptop: Intel TigerLake specifics
 dunst/ fcitx5/ picom/       config seeds deployed declaratively on NixOS
+helix/                      Helix editor config, seeded into ~/.config
 ```
 
 ## Full install guide (NixOS minimal + git)
@@ -86,6 +87,8 @@ First run compiles all tools from source. The toggle sets up:
 * **System**: PipeWire audio, NetworkManager, bluetooth,
   power-profiles-daemon (Super+p menu), backlight udev rules,
   Iosevka Nerd Font + Noto CJK + emoji
+* **Helix** (`hx`) as the standard editor — your `helix/config.toml` is
+  seeded into `~/.config/helix` on first launch
 
 ### 4. Log in
 
