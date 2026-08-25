@@ -1,8 +1,7 @@
 # suckless-environment
 
 A complete dwm-based desktop environment, built the suckless way and
-packaged for **NixOS** (declarative) and installable on **Artix/Arch**
-(`install.sh`).
+packaged for **NixOS** (declarative).
 
 | Component | Version | Customization |
 |-----------|---------|---------------|
@@ -27,8 +26,7 @@ nix/module.nix              NixOS module: programs.suckless-environment.enable
 default.nix                 entrypoint for classic configuration.nix users
 flake.nix                   flake entrypoint (same module + packages)
 hosts/minimal.nix           template configuration.nix
-install.sh                  Arch/Artix installer (not used on NixOS)
-dunst/ fcitx5/ udev/ xorg/  config seeds deployed declaratively on NixOS
+dunst/ fcitx5/ picom/       config seeds deployed declaratively on NixOS
 ```
 
 ## Full install guide (NixOS minimal + git)
@@ -197,7 +195,5 @@ nix build .#utils                     # all six C utilities
 
 ## Artix / Arch
 
-Run `./install.sh` as your normal user (it asks for sudo when needed).
-It installs packages, builds tools to `/usr/local/bin`, utilities to
-`~/.local/bin`, deploys dotfiles, the backlight udev rule and the
-keyboard conf, then verifies the result. See `docs/VM-VERIFICATION.md`.
+The Artix/Arch installer and its session script live on the `artix`
+branch: `git checkout artix && ./install.sh`.
