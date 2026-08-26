@@ -90,6 +90,7 @@ static const char *clipcmd[]    = { "dmenu-clip", "-c", "-bw", dmenuborders, "-m
 static const char *cpucmd[]     = { "dmenu-cpupower", "-c", "-bw", dmenuborders, "-m", dmenumon, "-fn", dmenufont, "-nb", col_bg, "-nf", col_fg, "-sb", col_sel, "-sf", col_selfg, NULL };
 static const char *sessioncmd[] = { "dmenu-session", "-c", "-bw", dmenuborders, "-m", dmenumon, "-fn", dmenufont, "-nb", col_bg, "-nf", col_fg, "-sb", col_sel, "-sf", col_selfg, NULL };
 static const char *termcmd[]    = { "st", NULL };
+static const char *emacscmd[]   = { "st", "-e", "tmux", "new-session", "emacs", NULL };
 
 static const Key keys[] = {
 	/* modifier                     key        function        argument */
@@ -109,6 +110,7 @@ static const Key keys[] = {
     { 0, XF86XK_AudioMute,          spawn,     {.v = volumemute } },
     { 0, XK_Print,                  spawn,     SHCMD("flameshot gui") },
     { MODKEY,                       XK_e,      spawn,          SHCMD("thunar") },
+    { MODKEY|ShiftMask,             XK_e,      spawn,          {.v = emacscmd} },
     { MODKEY| ShiftMask,            XK_b,      spawn,          SHCMD(BROWSER_CMD) },
 	{ MODKEY,                       XK_z,      zoom,           {0} },
 	{ MODKEY,                       XK_Tab,    view,           {0} },

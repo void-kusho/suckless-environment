@@ -54,7 +54,10 @@
    ;; === File manager ===
    "thunar"
    "thunar-volman"
+   "thunar-archive-plugin"
+   "thunar-media-tags-plugin"
    "gvfs"
+   "tumbler"
 
    ;; === Audio ===
    "pulseaudio"
@@ -77,8 +80,11 @@
    "polkit-gnome"
 
    ;; === Editors and terminal tools ===
-   "vim"
-   "neovim"
+   "emacs"
+   "ripgrep"
+   "fd"
+   "gnupg"
+   "hicolor-icon-theme"
    "tmux"
    "btop"
    "neofetch"

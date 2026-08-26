@@ -43,7 +43,9 @@
              (gnu packages python)
              (gnu packages texinfo)
              (gnu packages version-control)
-             (gnu packages vim)
+             (gnu packages emacs)
+             (gnu packages gnupg)
+             (gnu packages rust-apps)
              (gnu packages web-browsers)
              (gnu packages wm)
              (gnu packages xdisorg)
@@ -106,10 +108,13 @@
      ;; === Compositor ===
      picom
 
-     ;; === File manager ===
-     thunar
-     thunar-volman
-     gvfs
+      ;; === File manager ===
+      thunar
+      thunar-volman
+      thunar-archive-plugin
+      thunar-media-tags-plugin
+      gvfs
+      tumbler
 
      ;; === Audio ===
      pulseaudio
@@ -128,12 +133,15 @@
      ;; === Polkit ===
      polkit-gnome
 
-     ;; === Editors and terminal tools ===
-     vim
-     neovim
-     tmux
-     btop
-     neofetch
+      ;; === Editors and terminal tools ===
+      emacs
+      ripgrep
+      fd
+      gnupg
+      hicolor-icon-theme
+      tmux
+      btop
+      neofetch
 
      ;; === Networking ===
      network-manager-applet
@@ -191,4 +199,11 @@ export XDG_CONFIG_DIRS=\"$HOME/.guix-profile/etc/xdg:$XDG_CONFIG_DIRS\"
      ("config/fcitx5/profile"
       ,(local-file "../fcitx5/profile"))
      ("config/fcitx5/config"
-      ,(local-file "../fcitx5/config")))))
+      ,(local-file "../fcitx5/config"))
+     ;; Doom Emacs config
+     ("config/doom/init.el"
+      ,(local-file "../doom/init.el"))
+     ("config/doom/config.el"
+      ,(local-file "../doom/config.el"))
+     ("config/doom/packages.el"
+      ,(local-file "../doom/packages.el")))))

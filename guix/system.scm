@@ -28,6 +28,7 @@
              (gnu packages networking)
              (gnu packages bluetooth)
              (gnu packages package-management)
+             (gnu packages emacs)
              (gnu services)
              (gnu services xorg)
              (gnu services networking)
@@ -134,11 +135,14 @@
      ;; Polkit
      polkit-gnome
 
-     ;; Audio
-     pulseaudio
+      ;; Audio
+      pulseaudio
 
-     ;; Display manager
-     sddm)
+      ;; Display manager
+      sddm
+
+      ;; Editor
+      emacs)
 
     %base-packages))
 

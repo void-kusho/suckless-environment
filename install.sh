@@ -48,11 +48,11 @@ feh picom dunst lxsession polkit-gnome \
 fcitx5 fcitx5-configtool fcitx5-gtk \
 pulseaudio pipewire pipewire-pulseaudio wireplumber pamixer \
 brightnessctl flameshot xclip xsel xdotool \
-thunar thunar-volman gvfs ntfs-3g \
+thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin gvfs tumbler ntfs-3g \
 bluez blueman \
 network-manager connman dhcpcd \
 papirus-icon-theme lxappearance \
-vim neovim helix tmux btop neofetch \
+emacs ripgrep fd gnupg hicolor-icon-theme tmux btop neofetch \
 node openjdk \
 vlc resvg zip unzip linux-tools"
 
@@ -234,6 +234,24 @@ install_pkgs_guix() {
     guix package -m "$REPO_DIR/guix/manifest.scm" \
         || die "guix package install failed"
     info "packages installed — run 'guix home reconfigure guix/home.scm' for services"
+
+    # Install Doom Emacs if not present
+    if [ ! -d "$HOME/.config/emacs" ]; then
+        info "cloning Doom Emacs to ~/.config/emacs"
+        git clone --depth 1 https://github.com/doomemacs/doomemacs "$HOME/.config/emacs" \
+            || die "failed to clone Doom Emacs"
+    else
+        skip "Doom Emacs already cloned at ~/.config/emacs"
+    fi
+
+    # Run doom sync to install/configure Doom packages
+    if [ -x "$HOME/.config/emacs/bin/doom" ]; then
+        info "running doom sync"
+        "$HOME/.config/emacs/bin/doom" sync \
+            || warn "doom sync failed — run manually: ~/.config/emacs/bin/doom sync"
+    else
+        warn "doom binary not found — run manually: ~/.config/emacs/bin/doom sync"
+    fi
 }
 
 install_pkgs_pacman() {
@@ -487,6 +505,19 @@ verify_install() {
     if [ "$ID" = "guix" ]; then
         check_cmd "slock"             slock              "slock missing — dmenu-session lock will use fallback"
         check_cmd "cpupower"          cpupower           "cpupower missing (install linux-tools) — dmenu-cpupower will be non-functional"
+        check_cmd "emacs"             emacs              "emacs not on PATH — Doom Emacs will not work"
+        check_cmd "ripgrep"           rg                 "ripgrep not on PATH — Doom Emacs search will be slow"
+        check_cmd "fd"                fd                 "fd not on PATH — Doom Emacs file finding will be slow"
+        if [ -d "$HOME/.config/emacs" ]; then
+            v_ok "Doom Emacs: ~/.config/emacs exists"
+        else
+            v_warn "Doom Emacs not cloned — run: git clone --depth 1 https://github.com/doomemacs/doomemacs ~/.config/emacs"
+        fi
+        if [ -x "$HOME/.config/emacs/bin/doom" ]; then
+            v_ok "doom binary: $(command -v "$HOME/.config/emacs/bin/doom")"
+        else
+            v_warn "doom binary not found — run: ~/.config/emacs/bin/doom sync"
+        fi
     else
         check_cmd "betterlockscreen"  betterlockscreen  "betterlockscreen missing — dmenu-session lock will fail"
         check_cmd "powerprofilesctl"  powerprofilesctl  "powerprofilesctl missing — dmenu-cpupower will be non-functional"
@@ -628,6 +659,18 @@ print_guix_nonfree_notice() {
     echo ""
     echo "  Nerd Fonts:  Install via Nonguix channel"
     echo "               guix install nerd-fonts"
+    echo ""
+    hr
+    info "Doom Emacs setup"
+    hr
+    echo "Doom Emacs is installed at ~/.config/emacs"
+    echo ""
+    echo "  Sync packages:    ~/.config/emacs/bin/doom sync"
+    echo "  Update packages:  ~/.config/emacs/bin/doom upgrade"
+    echo "  Rebuild config:   ~/.config/emacs/bin/doom sync -u"
+    echo ""
+    echo "  Keybinding:       MOD+Shift+E opens Emacs in st+tmux"
+    echo ""
     hr
 }
 
