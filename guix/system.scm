@@ -52,7 +52,6 @@
              (gnu packages wm)
              (gnu packages xfce)
              (gnu packages networking)
-             (gnu packages sound)
              (gnu packages pulseaudio)
              (gnu packages desktop)
              (gnu packages fcitx5)
