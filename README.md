@@ -85,9 +85,10 @@ flatpak install com.brave.Browser com.discordapp.Discord com.spotify.Client
 guix/
 ├── channels.scm    # Channel definitions (with Nonguix)
 ├── system.scm      # System config: dwl desktop, greetd, users, services, udev
-├── packages.scm    # Declarative suckless package definitions (suckless-dwl, suckless-utils)
 ├── home.scm        # Home config: shell, Wayland env, pipewire, config seeds
 └── manifest.scm    # Flat package list
+suckless/
+└── packages.scm    # Declarative suckless package definitions (suckless-dwl, suckless-utils)
 guix-vm.md          # VirtualBox test plan for the Guix config
 ```
 

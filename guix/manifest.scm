@@ -8,7 +8,7 @@
 ;;;   guix package -m guix/manifest.scm
 ;;;
 ;;; The vendored suckless tools (dwl, utils) are built declaratively by
-;;; guix/packages.scm and installed via guix/system.scm; this manifest only
+;;; suckless/packages.scm and installed via guix/system.scm; this manifest only
 ;;; covers the surrounding packages.
 
 (specifications->manifest

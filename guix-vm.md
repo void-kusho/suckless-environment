@@ -2,7 +2,7 @@
 
 The declarative Guix config in `guix/` (a real desktop) can be validated in a
 VirtualBox VM before touching the laptop — without installing Guix locally.
-This is the fastest way to compile-check `guix/system.scm`, `guix/packages.scm`
+This is the fastest way to compile-check `guix/system.scm`, `suckless/packages.scm`
 and `guix/home.scm` and to smoke-test the dwl/greetd desktop.
 
 ## Why a VM
@@ -95,7 +95,7 @@ emits a script that boots the configured OS in QEMU.
 ## 4. What to verify
 
 - **Reconfigure succeeds**: `guix system reconfigure` compiles
-  `guix/packages.scm` and `guix/system.scm`. Any unknown package/service/field
+  `suckless/packages.scm` and `guix/system.scm`. Any unknown package/service/field
   name fails here, so it is the primary syntax gate.
 - **Boots to a greeter**: `greetd` runs the `tuigreet` console greeter on
   tty1 (no X server). Logging in launches the dwl session via `dwl-session`.

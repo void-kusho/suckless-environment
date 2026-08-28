@@ -20,6 +20,9 @@
 ;;; Deciding which entrypoint to build: pass a --load-path or edit which
 ;;; operating-system the file evaluates to at the bottom.
 
+(eval-when (expand load eval)
+  (add-to-load-path (dirname (dirname (current-filename)))))
+
 (use-modules (gnu)
              (gnu system)
              (gnu system nss)
@@ -149,7 +152,7 @@ tuigreet greeter launches this as the user's Wayland session." )
 ;; editors live in guix/home.scm (see there for the split philosophy).
 (define %suckless-system-packages
   (list
-   ;; suckless tools, built from the vendored sources (guix/packages.scm)
+   ;; suckless tools, built from the vendored sources (suckless/packages.scm)
    suckless-dwl suckless-utils
    dwl-session               ; greetd session runner (+ dwl-status on PATH)
 
