@@ -84,7 +84,11 @@ flatpak install com.brave.Browser com.discordapp.Discord com.spotify.Client
 ```
 guix/
 ├── channels.scm    # Channel definitions (with Nonguix)
-├── system.scm      # System config: dwl desktop, greetd, users, services, udev
+├── system.scm      # shim → hosts/laptop.scm (backward compat)
+├── services.scm    # shared suckless-system, services, packages
+├── hosts/
+│   ├── laptop.scm  # real hardware (artix-btw)
+│   └── vm.scm      # QEMU/VirtualBox test host
 ├── home.scm        # Home config: shell, Wayland env, pipewire, config seeds
 └── manifest.scm    # Flat package list
 suckless/
@@ -105,17 +109,16 @@ guix-vm.md          # VirtualBox test plan for the Guix config
 
 ## Testing in a VM
 
-You don't need Guix installed on the host to validate the config — build a throwaway VM from `guix/system.scm`. The file evaluates to whatever host is on its **last line** (`guix/system.scm:413`):
+You don't need Guix installed on the host to validate the config — the hosts live in `guix/hosts/` and share logic in `guix/services.scm` + `suckless/packages.scm`:
 
-- `%suckless-laptop` — real hardware (default)
-- `%suckless-vm` — QEMU/VirtualBox test host (no backlight, `/dev/vda`, free kernel)
-
-Switch the last line to `%suckless-vm`, then on a machine with Guix:
+- `guix/hosts/laptop.scm` — real hardware (`%suckless-laptop`)
+- `guix/hosts/vm.scm` — QEMU/VirtualBox test host (`%suckless-vm`, no backlight, `/dev/vda`, `linux-libre`)
+- `guix/system.scm` — thin shim → laptop (backward compat)
 
 **A) Ephemeral QEMU VM (fastest, no VirtualBox):**
 ```bash
 cp guix/channels.scm ~/.config/guix/channels.scm && guix pull
-guix system vm guix/system.scm  # builds VM image + prints .../bin/run-vm.sh
+guix system vm guix/hosts/vm.scm  # builds VM image + prints .../bin/run-vm.sh
 ./gnu/store/...-run-vm.sh       # boots VM; login on tty1 via greetd/tuigreet → dwl
 ```
 
@@ -123,9 +126,8 @@ guix system vm guix/system.scm  # builds VM image + prints .../bin/run-vm.sh
 Create a 30GB VM (Arch Linux 64-bit, 4GB RAM), boot the Guix System base ISO, install a minimal `/mnt/etc/config.scm`, then inside the VM:
 ```bash
 git clone <this-repo> && cd suckless-environment
-# flip last line of guix/system.scm: %suckless-laptop -> %suckless-vm
 cp guix/channels.scm ~/.config/guix/channels.scm && guix pull
-sudo guix system reconfigure guix/system.scm   # primary compile gate
+sudo guix system reconfigure guix/hosts/laptop.scm   # or vm.scm inside the VM; primary compile gate
 guix home reconfigure guix/home.scm
 make -C utils install PREFIX="$HOME/.local"
 ```
