@@ -5,8 +5,6 @@
 ;;;   - Main GNU Guix channel (free software)
 ;;;   - Nonguix channel (non-free: Steam, Discord, Spotify, Nerd Fonts)
 
-(use-modules (guix channels))
-
 (cons* (channel
         (name 'nonguix)
         (url "https://gitlab.com/nonguix/nonguix")
