@@ -26,13 +26,13 @@
   #:use-module (guix build-system gnu)
   #:use-module (guix utils)
   #:use-module ((guix licenses) #:prefix license:)
-  #:use-module (gnu packages wm)
+  #:use-module (gnu packages window-management)
   #:export (suckless-dwl suckless-utils))
 
 ;; dwl (Wayland compositor, dwm-for-wayland) built with our dwl/config.h.
 ;; We build on top of the upstream Guix `dwl` recipe (gnu-build-system using
 ;; dwl's own Makefile, inputs wlroots + wayland + libinput + libxkbcommon...
-;; already wired by (gnu packages wm)) and merely swap in our config.h before
+;; already wired by (gnu packages window-management)) and merely swap in our config.h before
 ;; compilation — the dwl Makefile picks up a `config.h` placed in the source.
 (define-public suckless-dwl
   (package
