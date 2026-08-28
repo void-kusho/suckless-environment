@@ -35,7 +35,6 @@
              (gnu packages admin)
              (gnu packages bootloaders)
              (gnu packages commencement)
-             (gnu packages suckless)
              (gnu packages lxde)
              (gnu bootloader grub)
              (gnu packages certs)
