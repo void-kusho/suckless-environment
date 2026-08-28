@@ -7,8 +7,14 @@ include config.mk
 COMMON_OBJ = common/util.o
 DMENU_OBJ  = common/dmenu.o
 
-# X11 libraries (only needed by dmenu-clipd)
-X11_LIBS = -lX11 -lXfixes
+# dmenu -> wmenu shim (installed alongside the binaries)
+DMENU_SHIM = dmenu-shim/dmenu
+
+# Subdirs whose config.h is generated from config.def.h at build time
+# (gitignored, unlike the committed config.h in the other subdirs).
+GEN_CONFIG_SUBS = dmenu-session dmenu-cpupower
+$(addsuffix /config.h,$(GEN_CONFIG_SUBS)): %/config.h: %/config.def.h
+	cp $< $@
 
 # Utility binaries - populated as phases add utilities
 BINS = battery-notify/battery-notify brightness-notify/brightness-notify \
@@ -43,14 +49,14 @@ brightness-notify/brightness-notify.o: brightness-notify/brightness-notify.c bri
 dmenu-session/dmenu-session: dmenu-session/dmenu-session.o $(COMMON_OBJ) $(DMENU_OBJ)
 	$(CC) -o $@ $(LDFLAGS) $^
 
-dmenu-session/dmenu-session.o: dmenu-session/dmenu-session.c common/util.h common/dmenu.h
+dmenu-session/dmenu-session.o: dmenu-session/dmenu-session.c dmenu-session/config.h common/util.h common/dmenu.h
 	$(CC) -o $@ -c $(CFLAGS) $<
 
 # dmenu-cpupower
 dmenu-cpupower/dmenu-cpupower: dmenu-cpupower/dmenu-cpupower.o $(COMMON_OBJ) $(DMENU_OBJ)
 	$(CC) -o $@ $(LDFLAGS) $^
 
-dmenu-cpupower/dmenu-cpupower.o: dmenu-cpupower/dmenu-cpupower.c common/util.h common/dmenu.h
+dmenu-cpupower/dmenu-cpupower.o: dmenu-cpupower/dmenu-cpupower.c dmenu-cpupower/config.h common/util.h common/dmenu.h
 	$(CC) -o $@ -c $(CFLAGS) $<
 
 # dmenu-clip
@@ -60,9 +66,9 @@ dmenu-clip/dmenu-clip: dmenu-clip/dmenu-clip.o $(COMMON_OBJ) $(DMENU_OBJ)
 dmenu-clip/dmenu-clip.o: dmenu-clip/dmenu-clip.c dmenu-clip/config.h common/util.h common/dmenu.h
 	$(CC) -o $@ -c $(CFLAGS) $<
 
-# dmenu-clipd -- clipboard daemon (needs X11 libraries)
+# dmenu-clipd -- clipboard daemon (uses wl-paste --watch, no X11 libs)
 dmenu-clipd/dmenu-clipd: dmenu-clipd/dmenu-clipd.o $(COMMON_OBJ)
-	$(CC) -o $@ $(LDFLAGS) $^ $(X11_LIBS)
+	$(CC) -o $@ $(LDFLAGS) $^
 
 dmenu-clipd/dmenu-clipd.o: dmenu-clipd/dmenu-clipd.c dmenu-clipd/config.h common/util.h
 	$(CC) -o $@ -c $(CFLAGS) $<
@@ -84,6 +90,9 @@ install: all
 		cp -f "$$bin" "$(DESTDIR)$(PREFIX)/bin/$$(basename $$bin)"; \
 		chmod 755 "$(DESTDIR)$(PREFIX)/bin/$$(basename $$bin)"; \
 	done
+	@# dmenu -> wmenu shim; needs to shadow the system dmenu on PATH
+	cp -f "$(DMENU_SHIM)" "$(DESTDIR)$(PREFIX)/bin/dmenu"
+	chmod 755 "$(DESTDIR)$(PREFIX)/bin/dmenu"
 
 uninstall:
 	@for bin in $(BINS); do \

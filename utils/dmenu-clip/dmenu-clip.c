@@ -72,7 +72,7 @@ restore_clipboard(const char *filepath)
 			_exit(1);
 		dup2(fd, STDIN_FILENO);
 		close(fd);
-		execlp("xclip", "xclip", "-selection", "clipboard", NULL);
+		execlp("wl-copy", "wl-copy", "--type", "text/plain", NULL);
 		_exit(127);
 	}
 

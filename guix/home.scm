@@ -1,194 +1,102 @@
 ;;; Suckless Environment — Guix Home Configuration
 ;;; =================================================
-;;; This is a declarative, reproducible home configuration for
-;;; all user-level packages and services.
+;;; Declarative, reproducible HOME configuration (user-level) that works
+;;; alongside guix/system.scm.
+;;;
+;;; Split philosophy (mirrors Guix conventions, no duplication):
+;;;   * guix/system.scm  — the whole desktop: suckless tools, session
+;;;     daemons, apps, fonts, users, services, greetd, udev rules.  This is
+;;;     the OS-level "module".
+;;;   * guix/home.scm    — USER-level: interactive shell (bash), the
+;;;     shell/profile environment (PATH, fcitx5 IM), PipeWire audio, and
+;;;     the per-user config seeds (~/.config/...).  NO packages that
+;;;     system.scm already installs.
+;;;
+;;; Because system.scm already installs every package, this home
+;;; environment keeps a package-free profile; its real value is the
+;;; environment, shell and per-user config seeds.
 ;;;
 ;;; Usage:
 ;;;   guix home reconfigure guix/home.scm
 ;;;
 ;;; What this configures:
-;;;   - All suckless tools (built from source via packages)
-;;;   - All runtime dependencies
-;;;   - PipeWire audio stack
-;;;   - Notification daemon (dunst)
-;;;   - Input method (fcitx5)
-;;;   - Flatpak (for non-free apps: Brave, Discord, Spotify)
-;;;   - Shell profile (PATH, environment variables)
+;;;   - interactive bash (~/.bashrc: Tokyo Night prompt/colors/aliases)
+;;;   - shell profile (~/.profile: PATH, EDITOR, fcitx5 IM + Wayland env vars)
+;;;   - PipeWire audio stack (pulse + ALSA)
+;;;   - config seeds: helix, dunst, fcitx5, foot (~/.config/...)
 
 (use-modules (gnu home)
              (gnu home services)
-             (gnu home services shell)
+             (gnu home services shells)
              (gnu home services sound)
-             (gnu home services xorg)
-             (gnu home services desktop)
-             (gnu packages)
-             (gnu packages admin)
-             (gnu packages base)
-             (gnu packages bash)
-             (gnu packages certs)
-             (gnu packages compression)
-             (gnu packages curl)
-             (gnu packages fontutils)
-             (gnu packages freedesktop)
-             (gnu packages glib)
-             (gnu packages gnome)
-             (gnu packages gtk)
-             (gnu packages image)
-             (gnu packages linux)
-             (gnu packages networking)
-             (gnu packages package-management)
-             (gnu packages pdf)
-             (gnu packages pkg-config)
-             (gnu packages pulseaudio)
-             (gnu packages python)
-             (gnu packages texinfo)
-             (gnu packages version-control)
-             (gnu packages vim)
-             (gnu packages web-browsers)
-             (gnu packages wm)
-             (gnu packages xdisorg)
-             (gnu packages xfce)
-             (gnu packages xorg)
-             (guix gexp)
-             (guix packages)
-             (guix download)
-             (guix build-system gnu)
-             ((guix licenses) #:prefix license:))
+             (guix gexp))
 
 (home-environment
-  ;; Shell configuration
-  (shell bash)
-
-  ;; Packages — everything the user needs
-  (packages
-   (append
-    (list
-     ;; === Build tools ===
-     gcc-toolchain
-     make
-     pkg-config
-     git
-
-     ;; === X11 and suckless dependencies ===
-     libxft
-     libxinerama
-     libxrender
-     freetype
-     fontconfig
-     harfbuzz
-     imlib2
-     zlib
-
-     ;; === Fonts ===
-     font-gnu-freefont
-     font-liberation
-     font-dejavu
-
-     ;; === Core suckless tools (installed separately via install.sh) ===
-     ;; dwm, st, dmenu, slstatus — built from repo source
-     ;; The repo's install.sh handles building and installing these
-
-     ;; === Notification daemon ===
-     dunst
-
-     ;; === Screenshot ===
-     flameshot
-
-     ;; === Clipboard ===
-     xclip
-     xsel
-
-     ;; === Display utilities ===
-     xdotool
-     xrandr
-     feh
-
-     ;; === Compositor ===
-     picom
-
-     ;; === File manager ===
-     thunar
-     thunar-volman
-     gvfs
-
-     ;; === Audio ===
-     pulseaudio
-     pamixer
-
-     ;; === Brightness ===
-     brightnessctl
-
-     ;; === Power management ===
-     linux-tools          ; provides cpupower
-
-     ;; === Input method ===
-     fcitx5
-     fcitx5-configtool
-
-     ;; === Polkit ===
-     polkit-gnome
-
-     ;; === Editors and terminal tools ===
-     vim
-     neovim
-     tmux
-     btop
-     neofetch
-
-     ;; === Networking ===
-     network-manager-applet
-
-     ;; === Bluetooth ===
-     bluez
-
-     ;; === Flatpak (for non-free apps) ===
-     flatpak
-
-     ;; === Archive tools ===
-     zip
-     unzip
-
-     ;; === Image processing ===
-     resvg
-
-     ;; === HTTPS ===
-     nss-certs)
-
-    %base-packages))
+  ;; No packages here: guix/system.scm already installs the whole desktop
+  ;; (tools, session daemons, apps, fonts), so this home profile is kept
+  ;; deliberately package-free to avoid duplicating the system profile.
+  ;; The interactive (login) shell is bash, wired up by home-bash-service-type
+  ;; below — there is no `shell' field on home-environment itself.
+  (packages '())
 
   ;; Services
   (services
    (list
-    ;; PipeWire audio stack
-    (service home-pipewire-service-type
-             (home-pipewire-configuration
-              (enable-pulseaudio? #t)))
-
-    ;; Shell environment — PATH and variables
+    ;; Shell profile: PATH, editor, and the fcitx5 input-method env vars
+    ;; (exported for every session, so no .xprofile is needed).
     (service home-shell-profile-service-type
              (list
               (plain-file "profile"
-                          "# Ensure ~/.local/bin is in PATH
+                          "# Ensure ~/.local/bin (built suckless utils + dmenu->wmenu shim) is first.
 export PATH=\"$HOME/.local/bin:$PATH\"
 
-# Guix profile
-export PATH=\"$HOME/.guix-profile/bin:$PATH\"
+# Guix (system) profile
+export PATH=\"/run/current-system/profile/bin:$PATH\"
 
-# fcitx5 input method
+# Guix home profile
+export PATH=\"$HOME/.guix-home/profile/bin:$PATH\"
+
+# Default editor — Helix (hx)
+export EDITOR=hx
+
+# fcitx5 input method (see ~/.config/fcitx5)
 export GTK_IM_MODULE=fcitx
 export QT_IM_MODULE=fcitx
 export XMODIFIERS=@im=fcitx
 
-# XDG paths
-export XDG_DATA_DIRS=\"$HOME/.guix-profile/share:$XDG_DATA_DIRS\"
-export XDG_CONFIG_DIRS=\"$HOME/.guix-profile/etc/xdg:$XDG_CONFIG_DIRS\"
-")))))
+# Wayland session (set here so GUI apps pick the native backend regardless
+# of how the session is launched: dwl-start or the greetd/tuigreet dwl-session).
+export XDG_SESSION_TYPE=wayland
+export XDG_CURRENT_DESKTOP=dwl
+export GDK_BACKEND=wayland
+export QT_QPA_PLATFORM=wayland
+export MOZ_ENABLE_WAYLAND=1
 
-  ;; Home directory files
+# XDG paths
+export XDG_DATA_DIRS=\"$HOME/.guix-home/profile/share:$XDG_DATA_DIRS\"
+export XDG_CONFIG_DIRS=\"$HOME/.guix-home/profile/etc/xdg:$XDG_CONFIG_DIRS\"
+")))
+
+    ;; Bash interactive config: Tokyo Night prompt/colors/aliases/neofetch.
+    ;; Deployed as ~/.bashrc (the file itself guards non-interactive runs).
+    (service home-bash-service-type
+             (home-bash-configuration
+              (bashrc (list (local-file "../bash/bashrc")))))
+
+    ;; PipeWire audio stack (implements PulseAudio + ALSA).
+    (service home-pipewire-service-type
+             (home-pipewire-configuration
+              (enable-pulseaudio? #t)))))
+
+  ;; Per-user config seeds, deployed into ~/.config/...
   (files
-   `(("config/dunst/dunstrc"
+   `(("config/helix/config.toml"
+      ,(local-file "../helix/config.toml"))
+     ("config/dunst/dunstrc"
       ,(local-file "../dunst/dunstrc"))
      ("config/fcitx5/profile"
       ,(local-file "../fcitx5/profile"))
      ("config/fcitx5/config"
-      ,(local-file "../fcitx5/config")))))
+      ,(local-file "../fcitx5/config"))
+     ("config/foot/foot.ini"
+      ,(local-file "../foot/foot.ini")))))

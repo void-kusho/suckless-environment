@@ -4,10 +4,9 @@ Name=Default
 # Layout
 Default Layout=br
 # Default Input Method
-# Rest on the plain Brazilian keyboard (NOT mozc). With DefaultIM=mozc the
-# group woke up routing keys through the Japanese engine, which broke ABNT2
-# input ("keyboard went English"). mozc stays available as Item1, reachable
-# on demand via the trigger key (Control+Alt+space).
+# Plain Brazilian keyboard only.  (mozc was previously listed here but the
+# fcitx5-mozc engine is not packaged in core Guix, so the item was dead
+# weight — removed for correctness.)
 DefaultIM=keyboard-br
 
 [Groups/0/Items/0]
@@ -16,12 +15,6 @@ Name=keyboard-br
 # Layout
 # Explicit br so fcitx never falls back to a different default layout.
 Layout=br
-
-[Groups/0/Items/1]
-# Name
-Name=mozc
-# Layout
-Layout=
 
 [GroupOrder]
 0=Default

@@ -1,0 +1,50 @@
+#!/bin/sh
+# dmenu -> wmenu compatibility shim (Wayland)
+#
+# The suckless utils and dwl config invoke `dmenu` with X11-era flags
+# (-fn/-nb/-nf/-sb/-sf/-m/-c/-bw).  On Wayland we re-route those calls to
+# wmenu, translating the flags wmenu understands and dropping the rest.
+#
+# wmenu reads items from stdin and prints the selection to stdout, exactly
+# like dmenu, so the C utils (common/dmenu.c, dmenu-*) keep working unchanged.
+#
+# Installed as $PREFIX/bin/dmenu by utils/Makefile; PATH points here from
+# dwl-start.
+
+set -e
+
+# Tokyo Night palette (matches dwl/config.h).
+bg="#1a1b26"
+fg="#a9b1d6"
+selbg="#7aa2f7"
+selfg="#1a1b26"
+
+prompt=""
+lines=""
+font=""
+args=""
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        -p)          prompt="$2"; shift 2 ;;
+        -l)          lines="$2";  shift 2 ;;
+        -fn)         font="$2";   shift 2 ;;
+        -nb)         bg="$2";     shift 2 ;;
+        -nf)         fg="$2";     shift 2 ;;
+        -sb)         selbg="$2";  shift 2 ;;
+        -sf)         selfg="$2";  shift 2 ;;
+        # X11-only flags wmenu has no equivalent for (or reuses differently):
+        #   -c centered, -bw border width, -m monitor index, -b (wmenu = bottom)
+        -c|-bw|-m|-b) shift 2 ;;
+        # forward everything else (e.g. -i case-insensitive)
+        *)           args="$args $1"; shift ;;
+    esac
+done
+
+[ -n "$prompt" ] && set -- "$@" -p "$prompt"
+[ -n "$lines" ]  && set -- "$@" -l "$lines"
+[ -n "$font" ]   && set -- "$@" -f "$font"
+set -- "$@" -N "$bg" -n "$fg" -S "$selbg" -s "$selfg"
+
+# shellcheck disable=SC2086
+exec wmenu "$@" $args

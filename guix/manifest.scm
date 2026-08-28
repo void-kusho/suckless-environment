@@ -1,13 +1,15 @@
 ;;; Suckless Environment — Guix Package Manifest
 ;;; ==============================================
-;;; A flat list of all packages needed for the suckless environment.
-;;; This is the simplest way to install everything on an existing Guix system.
+;;; A flat list of all packages needed for the suckless Wayland (dwl) desktop.
+;;; This is the simplest way to install everything on an existing Guix system
+;;; without `guix system reconfigure`.
 ;;;
 ;;; Usage:
 ;;;   guix package -m guix/manifest.scm
 ;;;
-;;; After installing, run ./install.sh to build and install the suckless tools
-;;; from source (dwm, st, dmenu, slstatus, utils).
+;;; The vendored suckless tools (dwl, utils) are built declaratively by
+;;; guix/packages.scm and installed via guix/system.scm; this manifest only
+;;; covers the surrounding packages.
 
 (specifications->manifest
  '(;; === Build tools ===
@@ -16,17 +18,17 @@
    "pkg-config"
    "git"
 
-   ;; === X11 and suckless dependencies ===
-   "libxft"
-   "libxinerama"
-   "libxrender"
-   "freetype"
-   "fontconfig"
-   "harfbuzz"
-   "imlib2"
-   "zlib"
-   "xorg-server"
-   "xinit"
+   ;; === Wayland / wlroots ecosystem ===
+   "foot"            ; terminal
+   "wmenu"           ; dmenu backend for the dmenu-* utils
+   "wl-clipboard"    ; wl-copy/wl-paste
+   "grim"            ; screenshots (Print key)
+   "slurp"           ; region selection for grim
+   "swaylock"        ; lock screen
+   "swaybg"          ; wallpaper
+   "swayidle"        ; idle -> lock
+   "wlr-randr"       ; monitor layout
+   "xwayland"        ; X11 app fallback
 
    ;; === Fonts ===
    "font-gnu-freefont"
@@ -35,21 +37,6 @@
 
    ;; === Notification daemon ===
    "dunst"
-
-   ;; === Screenshot ===
-   "flameshot"
-
-   ;; === Clipboard ===
-   "xclip"
-   "xsel"
-
-   ;; === Display utilities ===
-   "xdotool"
-   "xrandr"
-   "feh"
-
-   ;; === Compositor ===
-   "picom"
 
    ;; === File manager ===
    "thunar"

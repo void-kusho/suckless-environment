@@ -29,16 +29,8 @@ confirm(const char *prompt, char *const extra_argv[])
 static void
 action_lock(void)
 {
-	const char *display;
 	const char *pgrep_cmd[] = { "pgrep", "-f", LOCK_PGREP_TARGET, NULL };
 	const char *lock_cmd[] = { LOCK_CMD, NULL };
-
-	/* Validate DISPLAY before spawning X11-dependent lock screen */
-	display = getenv("DISPLAY");
-	if (!display || !*display) {
-		warn("DISPLAY not set");
-		return;
-	}
 
 	/* Prevent duplicate lock screen instances.
 	 * Use -f (not -x) because some lock screens exceed
@@ -52,21 +44,21 @@ action_lock(void)
 static void
 action_logout(char *const extra_argv[])
 {
-	const char *kill_slstatus[] = { "pkill", "-x", "slstatus", NULL };
+	const char *kill_status[] = { "pkill", "-f", "dwl-status", NULL };
 	const char *kill_clipd[] = { "pkill", "-x", "dmenu-clipd", NULL };
 	const char *kill_dunst[] = { "pkill", "-x", "dunst", NULL };
-	const char *kill_dwm[] = { "pkill", "-x", "dwm", NULL };
+	const char *kill_dwl[] = { "pkill", "-x", "dwl", NULL };
 
 	if (!confirm("logout?", extra_argv))
 		return;
 
-	/* Kill daemons in order: slstatus, dmenu-clipd, dunst, then dwm.
-	 * dwm is killed LAST because it is the session leader --
-	 * when dwm exits, the X session tears down. */
-	exec_wait(kill_slstatus);
+	/* Kill daemons in order: status, dmenu-clipd, dunst, then dwl.
+	 * dwl is killed LAST because it is the session leader --
+	 * when dwl exits, the Wayland session tears down. */
+	exec_wait(kill_status);
 	exec_wait(kill_clipd);
 	exec_wait(kill_dunst);
-	exec_wait(kill_dwm);
+	exec_wait(kill_dwl);
 }
 
 static void

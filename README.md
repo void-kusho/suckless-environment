@@ -1,125 +1,119 @@
 # suckless-environment
 
-A hardened, C-native utility suite for a dwm-based desktop environment targeting Arch Linux (systemd), Artix Linux (OpenRC + elogind), and GNU Guix (Shepherd).
+A hardened, C-native utility suite for a **dwl**-based **Wayland** desktop,
+configured declaratively for **GNU Guix** (Shepherd). The compositor is
+**dwl** (the Wayland wlroots spin-off of dwm), with a `foot` terminal,
+`wmenu` menus, and the standard wlroots screenshot/lock/idle tools.
 
-## Supported Distributions
+> Legacy: the historical Arch/Artix path (install.sh, dwm/st/dmenu, SLiM) was
+> fully X11 and has been removed. The current focus (and this document) is the
+> Guix/Wayland (dwl) desktop; the Guix config in `guix/` is the way forward.
 
-- **Arch Linux** — systemd init system
-- **Artix Linux** — OpenRC init system with elogind
-- **GNU Guix** — Shepherd init system
+## Overview
 
-No other distributions are supported. No Wayland, no BSD, no macOS.
+| Role | Tool |
+|------|------|
+| Compositor / window manager | **dwl** (dynamic Wayland compositor) |
+| Status bar | dwl's built-in bar, fed by `dwl-status` |
+| Terminal | **foot** |
+| Program / command launcher | **wmenu** (`wmenu-run`) + `dmenu-shim` |
+| Clipboard | **wl-clipboard** (`wl-copy`/`wl-paste`) + `dmenu-clipd`/`dmenu-clip` |
+| Screenshot (Print) | **grim** + **slurp** → `wl-copy` |
+| Lock screen | **swaylock** |
+| Screen blanking / idle | **swayidle** → swaylock |
+| Wallpaper | **swaybg** |
+| Monitor layout | **wlr-randr** |
+| X11 fallback | **xwayland** |
+| Notifications | dunst |
+| Display manager | **greetd** + **tuigreet** (X11-free console greeter) |
 
-## Installation
+The `dmenu-*` utilities (`dmenu-clip`, `dmenu-cpupower`, `dmenu-session`)
+invoke the literal `dmenu` binary; a `~/.local/bin/dmenu` **shim** translates
+the dwl keybind → `wmenu`, so the C utilities need no Wayland rewrite.
 
-### Arch Linux / Artix Linux
+## Installation — GNU Guix
 
-```bash
-git clone https://github.com/YOUR_USERNAME/suckless-environment.git
-cd suckless-environment
-less install.sh          # review before running
-./install.sh
-```
+This is a fully declarative setup. **Guix is not installed on the host**; the
+`.scm` files are validated in a VirtualBox VM (see `guix-vm.md`) and applied to
+the laptop over SSH or directly on a Guix System.
 
-The install script will:
-1. Detect your distribution (Arch or Artix)
-2. Install required dependencies via pacman
-3. Build and install all suckless tools to `/usr/local/bin`
-4. Build and install custom utilities to `~/.local/bin`
-5. Copy configuration files to their proper locations
+### Step 1: Install Guix System
 
-### GNU Guix
+Follow the official guide: https://guix.gnu.org/manual/en/html_node/Installation.html
 
-This environment supports GNU Guix with a declarative, reproducible configuration.
-
-#### Step 1: Install Guix System
-
-Follow the official installation guide:
-https://guix.gnu.org/manual/en/html_node/Installation.html
-
-#### Step 2: Apply channels (for Nonguix/non-free packages)
+### Step 2: Channels (for Nonguix / non-free)
 
 ```bash
 cp guix/channels.scm ~/.config/guix/channels.scm
 guix pull
 ```
 
-#### Step 3: Apply system configuration
+### Step 3: System configuration
 
-This configures keyboard layout, udev rules, display manager, NetworkManager, Bluetooth, and system services.
+This configures the dwl compositor, greetd (display manager), users, services, udev
+rules, NetworkManager and Bluetooth:
 
 ```bash
 sudo guix system reconfigure guix/system.scm
 ```
 
-**Note:** Edit `guix/system.scm` before running:
-- Update `host-name` to your hostname
-- Update `timezone` to your timezone
-- Update file system UUIDs (use `blkid` to find yours)
-- Update bootloader target (e.g., `/dev/nvme0n1p1` for EFI)
+**Note:** Edit `guix/system.scm` first:
+- Update `host-name` and `timezone`
+- Update file-system UUIDs (use `blkid`)
+- Set the bootloader EFI target for your host
 
-#### Step 4: Apply home configuration
+### Step 4: Home configuration
 
-This installs all packages, configures PipeWire audio, dunst notifications, fcitx5 input method, and shell profile.
+Sets up the interactive shell (bash), Wayland + fcitx5 environment, PipeWire
+audio, and per-user config seeds (helix, dunst, fcitx5, **foot**). All *packages*
+come from `guix/system.scm` — this home profile stays package-free.
 
 ```bash
 guix home reconfigure guix/home.scm
 ```
 
-**Note:** Edit `guix/home.scm` before running:
-- Update `name` to your username
-- Update `home-directory` to your home path
-
-#### Step 5: Build suckless tools from source
+### Step 5: Non-free / Flatpak apps (optional)
 
 ```bash
-./install.sh
-```
-
-#### Step 6: Install non-free apps (optional)
-
-```bash
-# Flatpak setup
 flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 flatpak install com.brave.Browser com.discordapp.Discord com.spotify.Client
-
-# Nonguix (for Steam, Nerd Fonts)
-guix install nerd-fonts
 ```
 
-#### Guix Configuration Files
+### Guix Configuration Files
 
 ```
 guix/
 ├── channels.scm    # Channel definitions (with Nonguix)
-├── system.scm      # System config (keyboard, udev, display manager, services)
-├── home.scm        # Home config (packages, pipewire, dunst, shell profile)
-├── manifest.scm    # Flat package list (used by install.sh)
-└── sddm-theme/     # Custom Tokyo Night SDDM login theme
-    ├── theme.conf
-    ├── Main.qml
-    └── metadata.desktop
+├── system.scm      # System config: dwl desktop, greetd, users, services, udev
+├── packages.scm    # Declarative suckless package definitions (suckless-dwl, suckless-utils)
+├── home.scm        # Home config: shell, Wayland env, pipewire, config seeds
+└── manifest.scm    # Flat package list
+guix-vm.md          # VirtualBox test plan for the Guix config
 ```
 
-#### Guix-Specific Notes
+### Guix-Specific Notes
 
-- **Lock screen:** Uses `slock` (suckless) instead of `betterlockscreen`
-- **Browser:** Defaults to brave via Flatpak
-- **Power profiles:** Uses `cpupower` from `linux-tools` instead of `power-profiles-daemon`
-- **Reproducible:** The entire system can be reproduced from `guix/` config files
+- **Lock screen:** `swaylock` (via `dmenu-session` + automatic `swayidle`)
+- **Display manager:** greetd + `tuigreet`, a TTY/console greeter that runs the
+  dwl session via `--cmd dwl-session` (no X server involved)
+- **Session:** either the packaged `dwl-session` (greetd/tuigreet → `dwl-status | dwl`)
+  or the manual `./dwl-start`
+- **Browser:** **Brave** (primary) via Flatpak — dwl's `BROWSER_CMD`; **LibreWolf** (secondary) is a Guix package
+- **Power profiles:** `cpupower` from `linux-tools` (backed by `dmenu-cpupower`)
+- **Reproducible:** the entire desktop is reproduced from `guix/`
 
 ## Keybindings
 
-The window manager uses **Super (Windows key)** as the primary modifier (MODKEY).
+Compositor uses **Super (Windows/Logo)** as MODKEY (dwl's analogue of dwm's Mod4).
 
 ### Launch Applications
 
 | Key | Action | Description |
 |-----|--------|-------------|
-| `Super+d` | dmenu_run | Launch application |
-| `Super+Return` | st | Open terminal |
-| `Super+e` | thunar | Open file manager |
-| `Super+Shift+b` | brave | Launch browser |
+| `Super+d` | spawn menucmd | `wmenu-run` launcher |
+| `Super+Return` | spawn termcmd | `foot` terminal |
+| `Super+e` | spawn | `thunar` file manager |
+| `Super+Shift+b` | spawn | Brave browser |
 
 ### Window Management
 
@@ -127,22 +121,24 @@ The window manager uses **Super (Windows key)** as the primary modifier (MODKEY)
 |-----|--------|-------------|
 | `Super+j` | focusstack +1 | Focus next window |
 | `Super+k` | focusstack -1 | Focus previous window |
+| `Super+i` | incnmaster +1 | Grow master area |
 | `Super+h` | setmfact -0.05 | Shrink master area |
 | `Super+l` | setmfact +0.05 | Expand master area |
 | `Super+z` | zoom | Bring window to master |
-| `Super+q` | killclient | Close focused window |
+| `Super+Shift+C` | killclient | Close focused window |
 | `Super+t` | setlayout tile | Tile layout |
 | `Super+f` | setlayout float | Floating layout |
 | `Super+m` | setlayout monocle | Monocle layout |
 | `Super+space` | setlayout | Cycle layouts |
 | `Super+Shift+space` | togglefloating | Toggle floating |
 
-### Tag Navigation
+### Tag Navigation (`Super+[1-9]`)
 
 | Key | Action | Description |
 |-----|--------|-------------|
 | `Super+[1-9]` | view | Switch to tag |
 | `Super+0` | view | View all tags |
+| `Super+Ctrl+[1-9]` | toggleview | Toggle tag visibility |
 | `Super+Shift+[1-9]` | tag | Send window to tag |
 | `Super+Shift+0` | tag | Send window to all tags |
 
@@ -150,129 +146,104 @@ The window manager uses **Super (Windows key)** as the primary modifier (MODKEY)
 
 | Key | Action | Description |
 |-----|--------|-------------|
-| `Super+,` | focusmon -1 | Focus previous monitor |
-| `Super+.` | focusmon +1 | Focus next monitor |
-| `Super+Shift+,` | tagmon -1 | Send window to previous monitor |
-| `Super+Shift+.` | tagmon +1 | Send window to next monitor |
+| `Super+,` | focusmon | Focus output to the left |
+| `Super+.` | focusmon | Focus output to the right |
+| `Super+Shift+,` | tagmon | Send window to left output |
+| `Super+Shift+.` | tagmon | Send window to right output |
 
 ### System
 
 | Key | Action | Description |
 |-----|--------|-------------|
-| `Super+b` | togglebar | Toggle status bar |
 | `Super+Tab` | view | View last tag |
-| `Super+v` | dmenu-clip | Clipboard history |
-| `Super+p` | dmenu-cpupower | CPU power profile |
-| `Ctrl+Alt+Delete` | dmenu-session | Session menu (lock/logout/reboot/shutdown) |
-| `Super+Shift+q` | quit | Exit dwm |
-| `Super+Ctrl+Shift+q` | quit (1) | Force quit dwm |
+| `Super+v` | spawn clipcmd | `dmenu-clip` clipboard history |
+| `Super+p` | spawn cpucmd | `dmenu-cpupower` CPU power profile |
+| `Ctrl+Alt+Delete` | spawn sessioncmd | `dmenu-session` (lock/logout/reboot/shutdown) |
+| `Ctrl+Alt+Backspace` | quit | Kill the compositor |
+| `Super+Shift+Q` | quit | Exit dwl |
+| `Ctrl+Alt+F1..F12` | chvt | Switch virtual terminal |
 
 ### Media Keys
 
 | Key | Action | Description |
 |-----|--------|-------------|
-| `Print` | flameshot gui | Screenshot (region select, annotate, copy) |
-| `Brightness Up` | brightness-notify up | Increase brightness |
-| `Brightness Down` | brightness-notify down | Decrease brightness |
-| `Volume Up` | pactl set-sink-volume +5% | Increase volume |
-| `Volume Down` | pactl set-sink-volume -5% | Decrease volume |
-| `Volume Mute` | pactl set-sink-mute toggle | Toggle mute |
+| `Print` | grim+slurp | Screenshot selection → clipboard (notify-send confirm) |
+| Brightness Up | brightness-notify up | Increase brightness |
+| Brightness Down | brightness-notify down | Decrease brightness |
+| Volume Up | pactl +5% | Increase volume |
+| Volume Down | pactl -5% | Decrease volume |
+| Volume Mute | pactl toggle | Toggle mute |
 
-## Utilities
+## Utilities (C, in `utils/`)
 
 ### battery-notify
-Monitors battery level and sends notifications via dunst when low. Designed to run from cron or a timer.
+Monitors battery level, sends dunst notifications when low. Runs on a 30s loop
+from the session launcher.
 
 ### brightness-notify
-Adjusts display brightness using brightnessctl and shows an OSD notification.
+Adjusts brightness with `brightnessctl` and shows an OSD notification.
 
 ### dmenu-clip
-Clipboard history browser. Shows cached clipboard entries via dmenu, lets you restore any entry.
+Clipboard history browser. Lists cached entries via the `dmenu` shim (`wmenu`),
+lets you restore any entry.
 
 ### dmenu-clipd
-Clipboard daemon that watches for clipboard changes and caches them to disk. Runs as a background service.
+Clipboard daemon that watches `wl-paste --watch` and caches changes to disk.
+De-duplicates by hash and prunes to a bounded LRU list. Runs as a session daemon.
 
 ### dmenu-cpupower
-CPU power profile selector. Switches between performance, balanced, and power-saving modes using cpupower (Guix) or power-profiles-daemon (Arch/Artix).
+CPU power-profile selector (performance / balanced / power-saving) via `cpupower`.
 
 ### dmenu-session
-Session menu for lock screen, logout, reboot, and shutdown. Uses loginctl for session management.
+Session menu for lock, logout, reboot, shutdown — `swaylock` for locking, isn't
+tied to X11.
+
+### dmenu-shim
+The `~/.local/bin/dmenu` shim that maps the utils' native `dmenu` CLI to
+`wmenu`, giving run/command menus a Tokyo Night look under Wayland.
 
 ## Troubleshooting
 
 ### "command not found" for dependencies
 
 ```bash
-which dmenu st dwm slstatus   # check if binaries are installed
-echo $PATH                    # verify ~/.local/bin is in PATH
+which dwl foot wmenu grim slurp swaylock   # check binaries are on PATH
+echo $PATH                                 # ~/.local/bin and Guix profile are first
 ```
-
-Ensure `base-devel` (Arch/Artix) is installed. If using bash, add to `~/.bashrc`:
-```bash
-export PATH="$HOME/.local/bin:$PATH"
-```
-
-### AUR helper fails (Arch/Artix)
-
-```bash
-which yay paru   # check if AUR helper is installed
-```
-
-Install yay or paru manually first, or use pacman directly for dependencies.
-
-### brightnessctl permissions
-
-```bash
-brightnessctl -l                    # list available devices
-groups                              # check your groups
-ls -la /sys/class/backlight/        # check backlight permissions
-```
-
-Add user to video group: `sudo usermod -aG video $USER`
 
 ### Session doesn't start
 
 ```bash
-cat ~/.xprofile
-cat ~/.local/bin/dwm-start
+cat ~/.config/suckless/autostart.sh   # per-machine hook (monitors, wallpaper)
+cat ~/.local/bin/dwl-start             # manual entry point
 ```
 
-Ensure dwm-start is executable and referenced in `~/.xprofile`.
+Ensure `dwl-start` is executable, or log in through the `tuigreet` greeter.
 
-### Build fails with "X11/Xlib.h: No such file" (Guix)
+### Screenshot / clipboard not working
 
-Ensure `pkg-config` is available:
-```bash
-guix install pkg-config
-```
+The Print shortcut needs `grim`, `slurp`, `wl-copy` and `notify-send`; clipboard
+history needs `wl-paste` and `dmenu-clipd`. All are in `guix/system.scm`'s
+package list.
 
-### slock fails with "cannot open display" (Guix)
+### swaylock locks but nothing happens / no keyboard
 
-```bash
-guix install slock
-echo $DISPLAY  # should show :0 or similar
-```
+`swaylock` grabs input; type your password (no echo) and press Return. Add the
+`-C` config if you need a custom color scheme.
 
-### cpupower not found (Guix)
+### Fonts not rendering
 
-```bash
-guix install linux-tools
-```
-
-### Fonts not rendering (Guix)
-
-Nerd Fonts require the Nonguix channel:
-```bash
-guix pull
-guix install nerd-fonts
-```
+The Nerd glyphs used by `foot.ini`, `dunst` and `dwl-status.sh` come from the
+**`font-nerd-jetbrains-mono`** package, which is declared in
+`guix/system.scm` (main Guix channel, no Nonguix needed). If glyphs show as
+boxes (tofu), re-run `guix system reconfigure guix/system.scm` and refresh the
+font cache (`fc-cache -f`).
 
 ## Contributing
 
-For contributor documentation, AI assistant context, and project roadmap, see:
-
-- [CLAUDE.md](./CLAUDE.md) — AI assistant context and project specifications
+For contributor documentation, AI assistant context, and project roadmap, see
+`CLAUDE.md`.
 
 ## License
 
-See individual LICENSE files in each subdirectory (dwm/, st/, dmenu/, slstatus/, utils/).
+See the individual LICENSE files in each subdirectory (dwl/, foot/, utils/).

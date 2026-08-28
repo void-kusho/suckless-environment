@@ -1,7 +1,0 @@
-[Desktop Entry]
-Name=suckless-tokyonight
-Comment=Minimal Tokyo Night login theme for SDDM
-Type=QtQuick
-X-Plugin-Path=/usr/lib/sddm-sddm-qml
-X-SDDM-InterfaceVersion=0.14
-MainScript=Main.qml
