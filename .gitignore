@@ -1,11 +1,7 @@
 # Compiled objects and binaries
 *.o
-dwm/dwm
-st/st
-dmenu/dmenu
-dmenu/stest
-slstatus/slstatus
 utils/battery-notify/battery-notify
+utils/brightness-notify/brightness-notify
 utils/dmenu-session/dmenu-session
 utils/dmenu-cpupower/dmenu-cpupower
 utils/dmenu-clip/dmenu-clip
