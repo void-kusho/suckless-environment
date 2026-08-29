@@ -59,8 +59,10 @@ its traceability/file-system targets at the VM partition UUID.
 
 ## 3. Apply this repo's config
 
-The hosts are `guix/hosts/laptop.scm` (real hardware) and `guix/hosts/vm.scm`
-(VM). No flipping — pass the host file directly to `guix system`.
+After the VM boots to a console, `guix/system.scm` must be pointed at the VM
+host first. Edit its **last line** (the "which host to build" block) and switch
+`%suckless-laptop` to `%suckless-vm` — `guix system reconfigure` and
+`guix system vm` both build whatever that final value is.
 
 ```bash
 # 1. Get the repo (needs network — set up DHCP first)
@@ -69,23 +71,26 @@ dhcpcd
 git clone <this-repo-url> suckless-environment
 cd suckless-environment
 
-# 2. Pull channels (Nonguix) — optional for the free-only core
+# 2. Point the config at the VM host (last line of guix/system.scm):
+#      %suckless-laptop  ->  %suckless-vm
+
+# 3. Pull channels (Nonguix) — optional for the free-only core
 cp guix/channels.scm ~/.config/guix/channels.scm
 guix pull
 
-# 3. Reconfigure the system (compiles suckless/packages.scm + guix/services.scm; desktop)
-sudo guix system reconfigure -L . guix/hosts/vm.scm   # use laptop.scm on real hardware
+# 4. Reconfigure the system (compiles system.scm + packages.scm; desktop)
+sudo guix system reconfigure guix/system.scm
 
-# 4. Reconfigure home (checks home.scm + seeds)
+# 5. Reconfigure home (checks home.scm + seeds)
 guix home reconfigure guix/home.scm
 
-# 5. Build the suckless C utils into ~/.local (dmenu->wmenu shim included)
+# 6. Build the suckless C utils into ~/.local (dmenu->wmenu shim included)
 make -C utils install PREFIX="$HOME/.local"
 ```
 
 To build an ephemeral QEMU VM image instead of installing, run
-`guix system vm -L . guix/hosts/vm.scm`; it emits a script that boots the
-configured OS in QEMU.
+`guix system vm guix/system.scm` (again after flipping the final value); it
+emits a script that boots the configured OS in QEMU.
 
 ## 4. What to verify
 
@@ -111,8 +116,8 @@ configured OS in QEMU.
 Reconfigure is incremental — after editing any `.scm` file, rerun:
 
 ```bash
-sudo guix system reconfigure -L . guix/hosts/laptop.scm   # or vm.scm; after editing hosts/services/suckless/packages.scm
-guix home reconfigure guix/home.scm                  # after editing home.scm
+sudo guix system reconfigure guix/system.scm   # after editing system.scm/packages.scm
+guix home reconfigure guix/home.scm            # after editing home.scm
 ```
 
 Snapshot the VM before the first reconfigure so you can roll back a broken
@@ -121,7 +126,7 @@ boot with a single restore.
 ## 6. When the VM is green
 
 The same flow applies to the laptop, with these deltas handled by
-`guix/hosts/laptop.scm`:
+`guix/system.scm`'s laptop host:
 
 - real partition UUIDs (nvme) instead of the VM's `sda`
 - `intel_backlight` udev rules and Intel WiFi/BT (wireless-tools, firmware)
