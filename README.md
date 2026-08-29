@@ -1,266 +1,179 @@
 # suckless-environment
 
-A hardened, C-native utility suite for a **dwl**-based **Wayland** desktop,
-configured declaratively for **GNU Guix** (Shepherd). The compositor is
-**dwl** (the Wayland wlroots spin-off of dwm), with a `foot` terminal,
-`wmenu` menus, and the standard wlroots screenshot/lock/idle tools.
+A minimal Wayland desktop — **dwl** + **foot** + **wmenu** + a small suite of
+C utilities — built declaratively for **GNU Guix**.
 
-> Legacy: the historical Arch/Artix path (install.sh, dwm/st/dmenu, SLiM) was
-> fully X11 and has been removed. The current focus (and this document) is the
-> Guix/Wayland (dwl) desktop; the Guix config in `guix/` is the way forward.
-
-## Overview
+This is the Wayland port of the X11 dwm/st/dmenu/slstatus setup on the
+`origin/artix` branch, and it aims at parity with it: the same Tokyo Night
+palette, the same Iosevka face, the same 一二三 tags, the same keybindings,
+the same status line.
 
 | Role | Tool |
 |------|------|
-| Compositor / window manager | **dwl** (dynamic Wayland compositor) |
-| Status bar | dwl's built-in bar, fed by `dwl-status` |
+| Compositor | **dwl** 0.8, patched (`bar`, `snail`, `dwindle`) |
+| Status bar | dwl's bar from the `bar` patch, fed by `dwl-status` |
 | Terminal | **foot** |
-| Program / command launcher | **wmenu** (`wmenu-run`) + `dmenu-shim` |
-| Clipboard | **wl-clipboard** (`wl-copy`/`wl-paste`) + `dmenu-clipd`/`dmenu-clip` |
-| Screenshot (Print) | **grim** + **slurp** → `wl-copy` |
-| Lock screen | **swaylock** |
-| Screen blanking / idle | **swayidle** → swaylock |
-| Wallpaper | **swaybg** |
-| Monitor layout | **wlr-randr** |
-| X11 fallback | **xwayland** |
+| Menus | **wmenu**, reached through a `dmenu(1)` shim |
+| Editor | **Doom Emacs** on `emacs-pgtk` (native Wayland) |
+| Clipboard | wl-clipboard + `dmenu-clipd` / `dmenu-clip` |
+| Screenshot | grim + slurp → `wl-copy` |
+| Lock / idle | swaylock + swayidle |
+| Wallpaper | swaybg |
 | Notifications | dunst |
-| Display manager | **greetd** + **tuigreet** (X11-free console greeter) |
+| Input method | fcitx5 + anthy |
+| Login | greetd + tuigreet |
 
-The `dmenu-*` utilities (`dmenu-clip`, `dmenu-cpupower`, `dmenu-session`)
-invoke the literal `dmenu` binary; a `~/.local/bin/dmenu` **shim** translates
-the dwl keybind → `wmenu`, so the C utilities need no Wayland rewrite.
+## Layout
 
-## Installation — GNU Guix
+```
+Makefile              every guix invocation, with -L . wired up
+channels.scm          channel definitions (nonguix, for laptop firmware)
+channels-lock.scm     the frozen commits — `make lock`, then commit it
 
-This is a fully declarative setup. **Guix is not installed on the host**; the
-`.scm` files are validated in a VirtualBox VM (see `guix-vm.md`) and applied to
-the laptop over SSH or directly on a Guix System.
+suckless/packages.scm what this repo builds: suckless-dwl, suckless-utils, dwl-session
+suckless/desktop.scm  the whole desktop: packages + services + the OS builder
+hosts/laptop.scm      the real machine — hardware facts only
+hosts/vm.scm          the disposable test VM
+home.scm              guix home: shell, audio, ~/.config seeds
 
-### Step 1: Install Guix System
+dwl/config.h          compositor configuration (needs dwl/patches/)
+dwl/patches/          bar + snail + dwindle, in that order — see its README
+dwl/dwl-session       the one session launcher, for greetd AND for a TTY
+dwl/dwl-status        the status line piped into dwl's bar
+utils/                the C utilities and the dmenu→wmenu shim
+doom/                 $DOOMDIR: init.el, config.el, packages.el
+bash/ dunst/ fcitx5/ foot/    configuration deployed by home.scm
+```
 
-Follow the official guide: https://guix.gnu.org/manual/en/html_node/Installation.html
+Hosts are chosen by **file**, never by editing a line in a shared config.
 
-### Step 2: Channels (for Nonguix / non-free)
+## Usage
 
 ```bash
-cp guix/channels.scm ~/.config/guix/channels.scm
-guix pull
+cp channels.scm ~/.config/guix/channels.scm && guix pull
+make lock            # freeze the channel commits; commit channels-lock.scm
+
+make check           # type/service check both hosts — changes nothing
+make vm              # boot the real desktop in QEMU; log in as you / test
+make home            # apply the user configuration
+make laptop          # reconfigure this machine (runs make check-laptop first)
 ```
 
-### Step 3: System configuration
+`make help` lists the rest. **Nothing that fails `make check` should ever
+reach `make laptop`.**
 
-This configures the dwl compositor, greetd (display manager), users, services, udev
-rules, NetworkManager and Bluetooth:
+Machine-specific state — wallpaper, extra outputs, pointer warp — belongs in
+`~/.config/suckless/autostart.sh`, which `dwl-session` sources. The monitor
+*layout* is declarative, in `dwl/config.h`'s `monrules`.
+
+## Doom Emacs
+
+`doom/` holds `init.el`, `config.el` and `packages.el` — a byte-for-byte copy
+of `~/.config/doom` on the reference machine, and the whole of `$DOOMDIR`
+there. `make home` deploys them to `~/.config/doom`, so the configuration is
+identical by construction.
+
+Doom's *framework* is a git checkout and stays imperative. After `make home`:
 
 ```bash
-sudo guix system reconfigure guix/system.scm
+git clone https://github.com/doomemacs/core ~/.config/emacs
+~/.config/emacs/bin/doom install
+~/.config/emacs/bin/doom doctor      # should be quieter than on Artix
 ```
 
-**Note:** Edit `guix/system.scm` first:
-- Update `host-name` and `timezone`
-- Update file-system UUIDs (use `blkid`)
-- Set the bootloader EFI target for your host
+That remote is the one the reference machine tracks. `make home` puts
+`~/.config/emacs/bin` on `PATH`, and `EDITOR` is `emacsclient -a emacs`.
 
-### Step 4: Home configuration
+Every system dependency `doom doctor` reports, and every binary an enabled
+module actually uses on the reference machine, is installed by
+`suckless/desktop.scm`: git, ripgrep, **fd**, cmake + libtool + gcc-toolchain
+(`:term vterm`), poppler + autoconf + automake (`:tools pdf`), tmux, gnupg,
+sqlite, python, rust + rust-analyzer, clang (clangd), and
+**Symbols Nerd Font Mono**. The two in bold are *missing* on Artix today —
+`doom doctor` complains about both — so this is a small upgrade, not a
+regression.
 
-Sets up the interactive shell (bash), Wayland + fcitx5 environment, PipeWire
-audio, and per-user config seeds (helix, dunst, fcitx5, **foot**). All *packages*
-come from `guix/system.scm` — this home profile stays package-free.
+Three deliberate version deltas:
 
-```bash
-guix home reconfigure guix/home.scm
-```
+| | reference machine | Guix | consequence |
+|---|---|---|---|
+| Emacs | 31.1 | `emacs-pgtk` 30.2 | `doom doctor` calls 31.1 an unsupported development build, so 30.2 is the safer of the two. Swap in `emacs-next-pgtk` (31.0.91) if you want to stay on 31. |
+| Zig | 0.16.0 | 0.11.0 | five breaking releases apart, and `zig-zls` 0.15 matches neither — **not installed**; get it from ziglang.org (its releases are static and run fine on Guix) |
+| Node | 26.7.0 | 10.24.1 | **not installed**; use a `guix shell` with a newer channel, or an upstream build |
 
-### Step 5: Non-free / Flatpak apps (optional)
+Rust is the exception that *must* come from Guix: the rustup toolchain in
+`~/.cargo` is prebuilt against `/lib64/ld-linux`, which does not exist on Guix.
 
-```bash
-flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-flatpak install com.brave.Browser com.discordapp.Discord com.spotify.Client
-```
+**Editing:** `~/.config/doom/*.el` are symlinks into the store, so editing them
+in place fails. Edit `doom/` in this repository and re-run `make home`. That is
+what makes the configuration reproducible; if it gets in the way, swap the
+service in `home.scm` for a seed-if-absent activation.
 
-### Guix Configuration Files
-
-```
-guix/
-├── channels.scm    # Channel definitions (with Nonguix)
-├── system.scm      # System config: dwl desktop, greetd, users, services, udev
-├── home.scm        # Home config: shell, Wayland env, pipewire, config seeds
-└── manifest.scm    # Flat package list
-suckless/
-└── packages.scm    # Declarative suckless package definitions (suckless-dwl, suckless-utils)
-guix-vm.md          # VirtualBox test plan for the Guix config
-```
-
-### Guix-Specific Notes
-
-- **Lock screen:** `swaylock` (via `dmenu-session` + automatic `swayidle`)
-- **Display manager:** greetd + `tuigreet`, a TTY/console greeter that runs the
-  dwl session via `--cmd dwl-session` (no X server involved)
-- **Session:** either the packaged `dwl-session` (greetd/tuigreet → `dwl-status | dwl`)
-  or the manual `./dwl-start`
-- **Browser:** **Brave** (primary) via Flatpak — dwl's `BROWSER_CMD`; **LibreWolf** (secondary) is a Guix package
-- **Power profiles:** `cpupower` from `linux-tools` (backed by `dmenu-cpupower`)
-- **Reproducible:** the entire desktop is reproduced from `guix/`
-
-## Testing in a VM
-
-No Guix on the host? `guix/system.scm` has two hosts — flip the **last line** to choose:
-
-- `%suckless-laptop` — real hardware (default)
-- `%suckless-vm` — VM (`/dev/vda`, `linux-libre`)
-
-```bash
-# QEMU, no VirtualBox needed:
-guix system vm guix/system.scm  # after flipping to %suckless-vm
-# VirtualBox (persistent): see guix-vm.md — then inside the VM:
-sudo guix system reconfigure guix/system.scm
-```
-
-Full steps, what to verify (greetd, `dwl-status`, `wmenu`, `swaylock`), and `guix home` / `make -C utils` are in `guix-vm.md`.
 
 ## Keybindings
 
-Compositor uses **Super (Windows/Logo)** as MODKEY (dwl's analogue of dwm's Mod4).
+MODKEY is **Super**. These mirror `origin/artix:dwm/config.h` one for one.
 
-### Launch Applications
+| Key | Action |
+|-----|--------|
+| `Super+d` / `Super+Return` | `wmenu-run` / `foot` |
+| `Super+e` / `Super+Shift+b` | Thunar / Brave |
+| `Super+v` / `Super+p` | clipboard history / CPU profile |
+| `Super+j` `Super+k` | focus down / up in the stack |
+| `Super+i` | more windows in the master area |
+| `Super+h` `Super+l` | shrink / grow the master area |
+| `Super+z` | zoom to master |
+| `Super+b` | toggle the bar |
+| `Super+q` | close window |
+| `Super+t` `Super+f` `Super+m` `Super+r` `Super+Shift+r` | Spiral / Title / Float / Monocle / Dwindle |
+| `Super+space` / `Super+Shift+space` | cycle layout / toggle floating |
+| `Super+[1-9]` | view tag (`Ctrl` toggles, `Shift` sends the window) |
+| `Super+0` / `Super+Shift+0` | view / tag all |
+| `Super+,` `Super+.` | focus the output left / right (`Shift` sends) |
+| `Super+Tab` | last tag |
+| `Print` | region screenshot → clipboard |
+| `Ctrl+Alt+Delete` | session menu (lock / logout / reboot / shutdown) |
+| `Super+Shift+q` | quit dwl |
+| Brightness / Volume keys | `brightness-notify`, `pactl` |
 
-| Key | Action | Description |
-|-----|--------|-------------|
-| `Super+d` | spawn menucmd | `wmenu-run` launcher |
-| `Super+Return` | spawn termcmd | `foot` terminal |
-| `Super+e` | spawn | `thunar` file manager |
-| `Super+Shift+b` | spawn | Brave browser |
+## Utilities (`utils/`)
 
-### Window Management
+Plain POSIX C, no display-server dependency, one `config.h` each.
 
-| Key | Action | Description |
-|-----|--------|-------------|
-| `Super+j` | focusstack +1 | Focus next window |
-| `Super+k` | focusstack -1 | Focus previous window |
-| `Super+i` | incnmaster +1 | Grow master area |
-| `Super+h` | setmfact -0.05 | Shrink master area |
-| `Super+l` | setmfact +0.05 | Expand master area |
-| `Super+z` | zoom | Bring window to master |
-| `Super+Shift+C` | killclient | Close focused window |
-| `Super+t` | setlayout tile | Tile layout |
-| `Super+f` | setlayout float | Floating layout |
-| `Super+m` | setlayout monocle | Monocle layout |
-| `Super+space` | setlayout | Cycle layouts |
-| `Super+Shift+space` | togglefloating | Toggle floating |
+- **battery-notify** — low/critical battery notifications, on a 30 s tick
+- **brightness-notify** — brightnessctl plus an OSD notification
+- **dmenu-clipd** — clipboard daemon watching `wl-paste --watch`, LRU-bounded
+- **dmenu-clip** — browse and restore clipboard history
+- **dmenu-cpupower** — CPU governor selector, via `cpupower`
+- **dmenu-session** — lock / logout / reboot / shutdown, via `swaylock`
+- **dmenu-shim** — installed as `dmenu`, translates the X11-era dmenu command
+  line into `wmenu`, which is why none of the above needed a Wayland rewrite
 
-### Tag Navigation (`Super+[1-9]`)
+`make -C utils test` runs the suite.
 
-| Key | Action | Description |
-|-----|--------|-------------|
-| `Super+[1-9]` | view | Switch to tag |
-| `Super+0` | view | View all tags |
-| `Super+Ctrl+[1-9]` | toggleview | Toggle tag visibility |
-| `Super+Shift+[1-9]` | tag | Send window to tag |
-| `Super+Shift+0` | tag | Send window to all tags |
+## Differences from the X11 setup
 
-### Monitor Navigation
+Honest list; see `CLAUDE.md` for the reasoning.
 
-| Key | Action | Description |
-|-----|--------|-------------|
-| `Super+,` | focusmon | Focus output to the left |
-| `Super+.` | focusmon | Focus output to the right |
-| `Super+Shift+,` | tagmon | Send window to left output |
-| `Super+Shift+.` | tagmon | Send window to right output |
-
-### System
-
-| Key | Action | Description |
-|-----|--------|-------------|
-| `Super+Tab` | view | View last tag |
-| `Super+v` | spawn clipcmd | `dmenu-clip` clipboard history |
-| `Super+p` | spawn cpucmd | `dmenu-cpupower` CPU power profile |
-| `Ctrl+Alt+Delete` | spawn sessioncmd | `dmenu-session` (lock/logout/reboot/shutdown) |
-| `Ctrl+Alt+Backspace` | quit | Kill the compositor |
-| `Super+Shift+Q` | quit | Exit dwl |
-| `Ctrl+Alt+F1..F12` | chvt | Switch virtual terminal |
-
-### Media Keys
-
-| Key | Action | Description |
-|-----|--------|-------------|
-| `Print` | grim+slurp | Screenshot selection → clipboard (notify-send confirm) |
-| Brightness Up | brightness-notify up | Increase brightness |
-| Brightness Down | brightness-notify down | Decrease brightness |
-| Volume Up | pactl +5% | Increase volume |
-| Volume Down | pactl -5% | Decrease volume |
-| Volume Mute | pactl toggle | Toggle mute |
-
-## Utilities (C, in `utils/`)
-
-### battery-notify
-Monitors battery level, sends dunst notifications when low. Runs on a 30s loop
-from the session launcher.
-
-### brightness-notify
-Adjusts brightness with `brightnessctl` and shows an OSD notification.
-
-### dmenu-clip
-Clipboard history browser. Lists cached entries via the `dmenu` shim (`wmenu`),
-lets you restore any entry.
-
-### dmenu-clipd
-Clipboard daemon that watches `wl-paste --watch` and caches changes to disk.
-De-duplicates by hash and prunes to a bounded LRU list. Runs as a session daemon.
-
-### dmenu-cpupower
-CPU power-profile selector (performance / balanced / power-saving) via `cpupower`.
-
-### dmenu-session
-Session menu for lock, logout, reboot, shutdown — `swaylock` for locking, isn't
-tied to X11.
-
-### dmenu-shim
-The `~/.local/bin/dmenu` shim that maps the utils' native `dmenu` CLI to
-`wmenu`, giving run/command menus a Tokyo Night look under Wayland.
-
-## Troubleshooting
-
-### "command not found" for dependencies
-
-```bash
-which dwl foot wmenu grim slurp swaylock   # check binaries are on PATH
-echo $PATH                                 # ~/.local/bin and Guix profile are first
-```
-
-### Session doesn't start
-
-```bash
-cat ~/.config/suckless/autostart.sh   # per-machine hook (monitors, wallpaper)
-cat ~/.local/bin/dwl-start             # manual entry point
-```
-
-Ensure `dwl-start` is executable, or log in through the `tuigreet` greeter.
-
-### Screenshot / clipboard not working
-
-The Print shortcut needs `grim`, `slurp`, `wl-copy` and `notify-send`; clipboard
-history needs `wl-paste` and `dmenu-clipd`. All are in `guix/system.scm`'s
-package list.
-
-### swaylock locks but nothing happens / no keyboard
-
-`swaylock` grabs input; type your password (no echo) and press Return. Add the
-`-C` config if you need a custom color scheme.
-
-### Fonts not rendering
-
-The Nerd glyphs used by `foot.ini`, `dunst` and `dwl-status.sh` come from the
-**`font-nerd-jetbrains-mono`** package, which is declared in
-`guix/system.scm` (main Guix channel, no Nonguix needed). If glyphs show as
-boxes (tofu), re-run `guix system reconfigure guix/system.scm` and refresh the
-font cache (`fc-cache -f`).
+- **The status line is monochrome.** The `bar` patch draws it with a single
+  colour scheme and no dwl patch implements dwm's status2d `^c#rrggbb^`
+  escapes. Glyphs, order and the 年月日 date are identical.
+- **No system tray.** Wayland has no XEmbed.
+- **Japanese input is Anthy, not Mozc** — mozc is not packaged in Guix.
+- **`wmenu-run` lists executables**, where `dmenu_run_desktop` listed
+  applications.
+- **CPU profiles go through `cpupower`**, since Guix has no
+  power-profiles-daemon.
+- **Zig and Node are not installed** — Guix's versions are far behind the ones
+  in use. See the Doom Emacs section.
+- **The 180 Hz mode on DP-1 is not declarable.** dwl picks each output's
+  preferred mode; a refresh rate would need the `monitorconfig` patch.
 
 ## Contributing
 
-For contributor documentation, AI assistant context, and project roadmap, see
-`CLAUDE.md`.
+`CLAUDE.md` holds the project context: the reference machine, the parity
+matrix, verified defects and the validation workflow.
 
 ## License
 
-See the individual LICENSE files in each subdirectory (dwl/, foot/, utils/).
+See the LICENSE files in each subdirectory.

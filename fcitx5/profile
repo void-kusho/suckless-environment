@@ -4,9 +4,7 @@ Name=Default
 # Layout
 Default Layout=br
 # Default Input Method
-# Plain Brazilian keyboard only.  (mozc was previously listed here but the
-# fcitx5-mozc engine is not packaged in core Guix, so the item was dead
-# weight — removed for correctness.)
+# Latin by default, exactly as before: Japanese is one Ctrl+Alt+Space away.
 DefaultIM=keyboard-br
 
 [Groups/0/Items/0]
@@ -15,6 +13,16 @@ Name=keyboard-br
 # Layout
 # Explicit br so fcitx never falls back to a different default layout.
 Layout=br
+
+[Groups/0/Items/1]
+# Name
+# The X11 machine used mozc.  mozc is NOT packaged in Guix (verified against
+# packages.guix.gnu.org), so Japanese input comes from Anthy instead --
+# fcitx5-anthy, installed by suckless/desktop.scm.  Conversion quality
+# differs from mozc; the input flow does not.
+Name=anthy
+# Layout
+Layout=
 
 [GroupOrder]
 0=Default

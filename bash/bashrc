@@ -1,5 +1,5 @@
 #
-# ~/.bashrc -- interactive shell configuration, deployed by guix/home.scm's
+# ~/.bashrc -- interactive shell configuration, deployed by home.scm's
 # home-bash-service-type (the file itself guards non-interactive runs).
 #
 
@@ -29,8 +29,11 @@ export GREP_COLORS='ms=38;2;247;118;142:mc=38;2;247;118;142:sl=:cx=:fn=38;2;122;
 # Tokyo Night LS_COLORS
 export LS_COLORS='di=38;2;122;162;247:ln=38;2;125;207;255:ex=38;2;158;206;106:*.tar=38;2;247;118;142:*.zip=38;2;247;118;142:*.gz=38;2;247;118;142:*.md=38;2;224;175;104:*.json=38;2;224;175;104:*.sh=38;2;158;206;106'
 
-# editors (the editor binary is `hx`; no `helix` alias needed)
-alias nv="nvim"
+# --- Editor: Doom Emacs ---
+# emacsclient reuses a running daemon when there is one and falls back to a
+# fresh `emacs' otherwise, so this works with or without `emacs --daemon'.
+alias e='emacsclient -a emacs'
+alias doom="$HOME/.config/emacs/bin/doom"
 
 # --- Safety ---
 alias rm='rm -i'
@@ -57,10 +60,11 @@ PS1='\[\e[38;2;158;206;106m\]\u@\h\[\e[0m\] \[\e[38;2;122;162;247m\]\W\[\e[38;2;
 # --- Paths ---
 
 # --- Editor ---
-export EDITOR=hx
+export EDITOR='emacsclient -a emacs'
+export VISUAL="$EDITOR"
 
-# --- Neofetch on st terminal ---
-if [ "$TERM" = "st-256color" ] && command -v neofetch >/dev/null 2>&1; then
+# --- Neofetch on a new terminal (foot sets TERM=foot / foot-extra) ---
+if [ "${TERM#foot}" != "$TERM" ] && command -v neofetch >/dev/null 2>&1; then
     neofetch
 fi
 

@@ -1,0 +1,86 @@
+#!/bin/sh
+# dwl-status - status line for dwl's built-in bar (the `bar' patch).
+#
+# The bar patch reads the status text from dwl's STDIN, one line per update:
+#   dwl-status | dwl
+# The last line received wins.  Keep the output PLAIN: unlike dwm's status2d,
+# the bar draws the whole string with a single color scheme, so `^c#rrggbb^'
+# escapes would be printed literally.
+#
+# Layout, glyphs and date format mirror the X11 slstatus config byte for byte
+# (origin/artix:slstatus/config.h):
+#
+#     24% |   7.9 Gi |   99%+ |   38 | 2026年08月29日 17:47 |
+#
+# Glyphs are Nerd Font code points: U+F4BC cpu, U+EFC5 ram, U+F242 battery,
+# U+F028 volume.  They come from font-nerd-symbols via the fallback chain in
+# dwl/config.h.
+
+BATTERY=BAT1          # matches the reference laptop; see /sys/class/power_supply
+INTERVAL=1
+
+# CPU usage over INTERVAL, from two /proc/stat samples.  Reading the fields
+# individually matters: `read _ a b c d' would swallow iowait..guest_nice into
+# the last variable and break the arithmetic.
+cpu_perc() {
+	set -- $(awk '/^cpu /{print $2,$3,$4,$5,$6,$7,$8; exit}' /proc/stat)
+	prev_idle=$(($4 + $5))
+	prev_total=$(($1 + $2 + $3 + $4 + $5 + $6 + $7))
+	sleep "$INTERVAL"
+	set -- $(awk '/^cpu /{print $2,$3,$4,$5,$6,$7,$8; exit}' /proc/stat)
+	idle=$(($4 + $5))
+	total=$(($1 + $2 + $3 + $4 + $5 + $6 + $7))
+	d_total=$((total - prev_total))
+	[ "$d_total" -le 0 ] && return
+	echo $(( (100 * (d_total - (idle - prev_idle))) / d_total ))
+}
+
+# Used RAM in human units, same as slstatus' ram_used ("7.9 Gi").
+ram_used() {
+	awk '/^MemTotal:/{t=$2} /^MemAvailable:/{a=$2}
+	     END {
+	         if (!t) exit
+	         u = t - a
+	         if (u >= 1048576) printf "%.1f Gi", u/1048576
+	         else              printf "%.0f Mi", u/1024
+	     }' /proc/meminfo
+}
+
+battery_perc() { cat "/sys/class/power_supply/$BATTERY/capacity" 2>/dev/null; }
+
+# slstatus' battery_state: + charging, - discharging, o otherwise.
+battery_state() {
+	case "$(cat "/sys/class/power_supply/$BATTERY/status" 2>/dev/null)" in
+		Charging)    echo '+' ;;
+		Discharging) echo '-' ;;
+		*)           echo 'o' ;;
+	esac
+}
+
+# slstatus ran `pamixer'; pactl is already a dependency of the volume keybinds.
+volume() {
+	case "$(pactl get-sink-mute @DEFAULT_SINK@ 2>/dev/null)" in
+		*yes) echo Muted; return ;;
+	esac
+	pactl get-sink-volume @DEFAULT_SINK@ 2>/dev/null \
+		| awk -F'/' '/Volume:/ { gsub(/[ %]/, "", $2); print $2; exit }'
+}
+
+while :; do
+	line=""
+	c=$(cpu_perc)                 # also provides the INTERVAL sleep
+	[ -n "$c" ] && line="  $c%"
+
+	m=$(ram_used)
+	[ -n "$m" ] && line="$line |   $m"
+
+	b=$(battery_perc)
+	[ -n "$b" ] && line="$line |   $b%$(battery_state)"
+
+	v=$(volume)
+	[ -n "$v" ] && line="$line |   $v"
+
+	line="$line | $(date '+%Y年%m月%d日 %H:%M') |"
+
+	printf '%s\n' "$line"
+done

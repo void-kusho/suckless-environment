@@ -1,0 +1,63 @@
+#!/bin/sh
+# dwl-session - the ONE entry point into the dwl desktop.
+#
+# Used by both login paths, so they cannot drift apart:
+#   * greetd/tuigreet  ->  --cmd dwl-session
+#   * a plain TTY      ->  dwl-session
+#
+# It sets the Wayland environment, runs the per-machine autostart hook, starts
+# the session daemons, and finally hands the status line to dwl's built-in bar.
+#
+# Machine-specific state (wallpaper, extra monitors, pointer warp) belongs in
+# ~/.config/suckless/autostart.sh, never here.  The monitor LAYOUT itself is
+# declarative, in dwl/config.h's monrules.
+
+# Guix profiles: home first, then system, so a `guix home' override wins.
+export PATH="$HOME/.guix-home/profile/bin:/run/current-system/profile/bin:$PATH"
+
+# Wayland session identity.  Set here rather than in the shell profile: a TTY
+# login is not a Wayland session and must not claim to be one.
+export XDG_SESSION_TYPE=wayland
+export XDG_CURRENT_DESKTOP=dwl
+export GDK_BACKEND=wayland
+export QT_QPA_PLATFORM=wayland
+export MOZ_ENABLE_WAYLAND=1
+export _JAVA_AWT_WM_NONREPARENTING=1
+
+# Input method (fcitx5 + mozc).  XMODIFIERS only matters for XWayland clients.
+export GTK_IM_MODULE=fcitx
+export QT_IM_MODULE=fcitx
+export XMODIFIERS=@im=fcitx
+
+# Per-machine hook: wallpaper (swaybg), extra outputs (wlr-randr), etc.
+AUTOSTART="$HOME/.config/suckless/autostart.sh"
+[ -f "$AUTOSTART" ] && . "$AUTOSTART"
+
+# Idempotent across re-logins and dwl restarts: never start a second copy.
+start_daemon() {
+	command -v "$1" >/dev/null 2>&1 || return 0
+	pgrep -x "${1##*/}" >/dev/null 2>&1 && return 0
+	"$@" &
+}
+
+start_daemon lxpolkit                 # polkit authentication agent
+start_daemon fcitx5 -d                # input method
+start_daemon dmenu-clipd              # clipboard history daemon
+start_daemon dunst                    # notification daemon
+
+# Audio is a Guix Home Shepherd service (home-pipewire-service-type); starting
+# pipewire by hand here would race it.
+
+# Battery monitor: same 30 second tick as the X11 session.
+(
+	while :; do
+		battery-notify
+		sleep 30
+	done
+) &
+
+# Lock the screen after 10 minutes idle.
+start_daemon swayidle -w timeout 600 swaylock
+
+# dwl's bar (the `bar' patch) reads its status text from dwl's stdin.
+exec sh -c 'dwl-status | dwl'

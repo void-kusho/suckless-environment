@@ -1,0 +1,80 @@
+Rebased `dwindle' for dwl 0.8 with the `bar' and `snail' patches applied.
+
+The upstream patches/dwindle/dwindle.patch conflicts with `snail': both insert
+a forward declaration next to tile()'s, and both edit the same config.def.h
+hunks.  This version touches dwl.c only -- the config.def.h changes are
+irrelevant here because dwl/config.h is written by hand -- and its context is
+taken from a tree with bar -> snail already applied.
+
+Original author: C4FE1 <heitorcdesousa13@gmail.com>
+Source: https://codeberg.org/dwl/dwl-patches/src/branch/main/patches/dwindle
+
+--- a/dwl.c
++++ b/dwl.c
+@@ -362,6 +362,7 @@
+ static void setpsel(struct wl_listener *listener, void *data);
+ static void setsel(struct wl_listener *listener, void *data);
+ static void setup(void);
++static void dwindle(Monitor *m);
+ static void snail(Monitor *m);
+ static void spawn(const Arg *arg);
+ static void startdrag(struct wl_listener *listener, void *data);
+@@ -2869,6 +2870,58 @@
+ }
+ 
+ void
++dwindle(Monitor *m)
++{
++	unsigned int i, n = 0;
++	int nx, ny, nw, nh;
++	int horizontal;
++	Client *c;
++
++	/* count clients */
++	wl_list_for_each(c, &clients, link)
++		if (VISIBLEON(c, m) && !c->isfloating && !c->isfullscreen)
++			n++;
++
++	if (n == 0)
++		return;
++
++	nx = m->w.x;
++	ny = m->w.y;
++	nw = m->w.width;
++	nh = m->w.height;
++
++	horizontal = 1; /* toggle split direction */
++	i = 0;
++
++	wl_list_for_each(c, &clients, link) {
++		if (!VISIBLEON(c, m) || c->isfloating || c->isfullscreen)
++			continue;
++
++		if (i == n - 1) {
++			/* last window gets remaining space */
++			resize(c, (struct wlr_box){nx, ny, nw, nh}, 0);
++		} else if (horizontal) {
++			int w = nw / 2;
++
++			resize(c, (struct wlr_box){nx, ny, w, nh}, 0);
++
++			nx += w;
++			nw -= w;
++		} else {
++			int h = nh / 2;
++
++			resize(c, (struct wlr_box){nx, ny, nw, h}, 0);
++
++			ny += h;
++			nh -= h;
++		}
++
++		horizontal = !horizontal;
++		i++;
++	}
++}
++
++void
+ snail(Monitor *m)
+ {
+ 	int i = 0, n = 0;

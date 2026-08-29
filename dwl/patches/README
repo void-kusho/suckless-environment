@@ -1,0 +1,20 @@
+Patches applied to dwl 0.8, in this exact order (see suckless/packages.scm):
+
+  1. bar.patch        dwm's bar, verbatim: tags, layout symbol, window title
+                      and a status area fed from dwl's stdin.  Adds drwl.h and
+                      the fcft + pixman build inputs.
+                      https://codeberg.org/dwl/dwl-patches/src/branch/main/patches/bar
+  2. snail-0.8.patch  the `snail' layout -- dwl's scalable equivalent of dwm's
+                      fibonacci spiral, which is the default layout on the
+                      reference machine.
+                      https://codeberg.org/dwl/dwl-patches/src/branch/main/patches/snail
+  3. dwindle.patch    the `dwindle' layout, rebased onto 1+2 (see its header).
+
+Verified to apply to a pristine dwl 0.8 tree with zero rejects.  dwl/config.h
+is written against the RESULT of all three and will not compile without them.
+
+Not applied, and why:
+  * bar-recolr  reloads the colour scheme at runtime; it does NOT add dwm's
+                status2d `^c#rrggbb^' escapes.  No patch in the collection
+                does, so the status line is drawn in a single colour --
+                the one visual difference from the X11 bar.
