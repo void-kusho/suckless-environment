@@ -29,6 +29,7 @@
              (gnu system shadow)
              (gnu system uuid)
              (gnu system file-systems)
+             (gnu system linux-initrd)
              (gnu packages)
              (gnu packages linux)
              (gnu packages freedesktop)
@@ -231,14 +232,14 @@ tuigreet greeter launches this as the user's Wayland session." )
       ;; fonts: Iosevka (mono) + Nerd Font (JetBrainsMono gives the Nerd glyphs
       ;; used by foot.ini, dunst and dwl-status.sh) + Noto CJK/emoji + icons.
       "font-iosevka"
-      "font-jetbrains-mono" "font-nerd-jetbrains-mono"
+      "font-nerd-jetbrains-mono"
       "font-awesome"
       "font-google-noto-sans-cjk"
       "font-google-noto-emoji"
 
-      ;; build + tooling (make is `make` or `gnu-make` depending on channel)
+      ;; build + tooling
       "git"
-      "make" "gmake" "gnu-make"
+      "make"
       "gcc-toolchain"
       "pkg-config"
 
@@ -298,9 +299,9 @@ tuigreet greeter launches this as the user's Wayland session." )
           (locale "en_US.utf8")
           (user "you")
           (user-comment "User")
-          (kernel linux-libre)
-          (kernel-arguments '())
-          (initrd default-initrd)
+           (kernel linux-libre)
+           (kernel-arguments '())
+           (initrd base-initrd)
           (firmware '())
           (file-systems %base-file-systems)
           (swap-devices '())
