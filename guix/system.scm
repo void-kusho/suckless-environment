@@ -149,80 +149,101 @@ tuigreet greeter launches this as the user's Wayland session." )
     (home-page "https://suckless.org/")
     (license license:expat)))
 
+;; Helper: make the package list resilient across Guix channel versions.
+;; `xwayland` vs `xorg-server-xwayland`, `make` vs `gnu-make`, `linux-tools`
+;; vs `cpupower`, nerd-font renames etc. all differ between channels.
+;; Using `specification->package` by package *name* (not variable) plus
+;; filtering out missing specs means a single rename won't break the whole
+;; `guix system reconfigure`. Local packages (suckless-*, dwl-session) stay
+;; as variables. No extra imports needed — `catch` is core Guile.
+(define (try-spec spec)
+  (catch #t
+    (lambda () (specification->package spec))
+    (lambda _ #f)))
+
+(define (specs->pkgs specs)
+  (let loop ((lst specs) (out '()))
+    (if (null? lst)
+        (reverse out)
+        (let ((pkg (try-spec (car lst))))
+          (loop (cdr lst) (if pkg (cons pkg out) out))))))
+
 ;; System-wide packages shared by every host.  User-level extras and
 ;; editors live in guix/home.scm (see there for the split philosophy).
 (define %suckless-system-packages
-  (list
-   ;; suckless tools, built from the vendored sources (suckless/packages.scm)
-   suckless-dwl suckless-utils
-   dwl-session               ; greetd session runner (+ dwl-status on PATH)
+  (append
+   (list
+    ;; suckless tools, built from the vendored sources (suckless/packages.scm)
+    suckless-dwl suckless-utils
+    dwl-session)               ; greetd session runner (+ dwl-status on PATH)
 
-   ;; Wayland session stack (wmenu/wlroots ecosystem)
-   foot                      ; terminal (dwl termcmd)
-   wmenu                     ; dmenu backend for the suckless dmenu-* utils
-   wl-clipboard              ; wl-copy/wl-paste (dmenu-clip, dmenu-clipd)
-   grim slurp                ; Print-key screenshots
-    swaylock                  ; lock screen (dmenu-session)
-    swaybg                    ; wallpaper (autostart hook)
-    swayidle                  ; idle -> lock (autostart hook)
-    wlr-randr                 ; monitor layout (autostart hook)
-    ;; xwayland is `xwayland` on Guix master but `xorg-server-xwayland` on
-    ;; older channels; keep the list simple and let dwl pull it as needed.
-    ;; Add it explicitly if your channel provides it:
-    ;;   (specification->package "xwayland") ; or "xorg-server-xwayland"
+   (specs->pkgs
+    '(
+      ;; Wayland session stack (wmenu/wlroots ecosystem)
+      "foot"                      ; terminal (dwl termcmd)
+      "wmenu"                     ; dmenu backend for the suckless dmenu-* utils
+      "wl-clipboard"              ; wl-copy/wl-paste (dmenu-clip, dmenu-clipd)
+      "grim" "slurp"                ; Print-key screenshots
+      "swaylock"                  ; lock screen (dmenu-session)
+      "swaybg"                    ; wallpaper (autostart hook)
+      "swayidle"                  ; idle -> lock (autostart hook)
+      "wlr-randr"                 ; monitor layout (autostart hook)
+      ;; xwayland is `xwayland` on Guix master but `xorg-server-xwayland` on
+      ;; older channels; let dwl pull it when needed. Uncomment if you need it:
+      ;; "xwayland" "xorg-server-xwayland"
 
-   ;; session daemons & helpers referenced by the launcher / keybinds
-   dunst                     ; notifications (battery/brightness alerts)
-   libnotify                 ; provides notify-send (used by the Print keybind)
-   lxsession                 ; provides lxpolkit, the polkit agent
-    brightnessctl             ; brightness engine used by brightness-notify
-    pulseaudio                ; provides pactl for volume media keys
-    cpupower                  ; CPU power profiles (dmenu-cpupower backend)
+      ;; session daemons & helpers referenced by the launcher / keybinds
+      "dunst"                     ; notifications (battery/brightness alerts)
+      "libnotify"                 ; provides notify-send (used by the Print keybind)
+      "lxsession"                 ; provides lxpolkit, the polkit agent
+      "brightnessctl"             ; brightness engine used by brightness-notify
+      "pulseaudio"                ; provides pactl for volume media keys
+      "cpupower"                  ; CPU power profiles (dmenu-cpupower backend)
 
-   ;; input method — fcitx5 is launched by the session launcher (dwl-start /
-   ;; the autostart hook) and the IM env vars are seeded in guix/home.scm.
-   fcitx5
-   fcitx5-configtool         ; GUI tool to manage the input method
+      ;; input method — fcitx5 is launched by the session launcher (dwl-start /
+      ;; the autostart hook) and the IM env vars are seeded in guix/home.scm.
+      "fcitx5"
+      "fcitx5-configtool"         ; GUI tool to manage the input method
 
-   ;; applications bound in dwl/config.h
-   thunar
-   librewolf               ; secondary browser (privacy-focused Firefox fork)
+      ;; applications bound in dwl/config.h
+      "thunar"
+      "librewolf"               ; secondary browser (privacy-focused Firefox fork)
 
-   ;; NOTE: Brave is the PRIMARY browser — it is NOT packaged in Guix, so it
-   ;; is installed via Flatpak (guix/system.scm cannot provide it).  dwl's
-   ;; BROWSER_CMD already launches it: `flatpak run com.brave.Browser`.
-   ;; LibreWolf (above) is the packaged secondary/fallback browser.
+      ;; NOTE: Brave is the PRIMARY browser — it is NOT packaged in Guix, so it
+      ;; is installed via Flatpak (guix/system.scm cannot provide it).  dwl's
+      ;; BROWSER_CMD already launches it: `flatpak run com.brave.Browser`.
+      ;; LibreWolf (above) is the packaged secondary/fallback browser.
 
-   ;; thunar integrations (exo finds foot via its .desktop entry)
-   exo
-   thunar-archive-plugin
-   xarchiver
-   p7zip
-   zip
-   unzip
+      ;; thunar integrations (exo finds foot via its .desktop entry)
+      "exo"
+      "thunar-archive-plugin"
+      "xarchiver"
+      "p7zip"
+      "zip"
+      "unzip"
 
-   ;; bluetooth stack
-   blueman
+      ;; bluetooth stack
+      "blueman"
 
-   ;; standard editor
-   helix
+      ;; standard editor
+      "helix"
 
-   ;; fonts: Iosevka (mono) + Nerd Font (JetBrainsMono gives the Nerd glyphs
-   ;; used by foot.ini, dunst and dwl-status.sh) + Noto CJK/emoji + icons.
-   font-iosevka
-   font-nerd-jetbrains-mono
-   font-awesome
-   font-google-noto-sans-cjk
-   font-google-noto-emoji
+      ;; fonts: Iosevka (mono) + Nerd Font (JetBrainsMono gives the Nerd glyphs
+      ;; used by foot.ini, dunst and dwl-status.sh) + Noto CJK/emoji + icons.
+      "font-iosevka"
+      "font-jetbrains-mono" "font-nerd-jetbrains-mono"
+      "font-awesome"
+      "font-google-noto-sans-cjk"
+      "font-google-noto-emoji"
 
-   ;; build + tooling
-   git
-   make
-   gcc-toolchain
-   pkg-config
+      ;; build + tooling (make is `make` or `gnu-make` depending on channel)
+      "git"
+      "make" "gmake" "gnu-make"
+      "gcc-toolchain"
+      "pkg-config"
 
-   ;; HTTPS certificates
-   nss-certs))
+      ;; HTTPS certificates
+      "nss-certs"))))
 
 ;; Shared system services grafted onto every host.
 (define (suckless-services)
