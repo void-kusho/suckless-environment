@@ -6,13 +6,21 @@ dmenu/dmenu
 dmenu/stest
 slstatus/slstatus
 utils/battery-notify/battery-notify
-utils/screenshot-notify/screenshot-notify
+utils/brightness-notify/brightness-notify
 utils/dmenu-session/dmenu-session
 utils/dmenu-cpupower/dmenu-cpupower
 utils/dmenu-clip/dmenu-clip
 utils/dmenu-clipd/dmenu-clipd
 utils/test-util
 utils/test-dmenu
+
+# Generated from config.def.h at build time by install.sh and by the Guix
+# package definition — never commit these.
+utils/dmenu-session/config.h
+utils/dmenu-cpupower/config.h
+
+# Guix build output symlink
+result
 
 .claude
 # Editor backups

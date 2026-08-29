@@ -1,278 +1,281 @@
 # suckless-environment
 
-A hardened, C-native utility suite for a dwm-based desktop environment targeting Arch Linux (systemd), Artix Linux (OpenRC + elogind), and GNU Guix (Shepherd).
+A minimal X11 desktop for **GNU Guix**: dwm, st, dmenu, slstatus and a small
+suite of C utilities, with Doom Emacs.
 
-## Supported Distributions
+Everything is declarative. One `reconfigure` builds the tools from the sources
+in this repository, installs every dependency and registers the dwm session
+with the SLiM login screen. There is no install script: on Guix, `guix system
+reconfigure` **is** the installer. (The Arch/Artix build lives on the `artix`
+branch.)
 
-- **Arch Linux** — systemd init system
-- **Artix Linux** — OpenRC init system with elogind
-- **GNU Guix** — Shepherd init system
+| Role | Tool | Patches applied |
+|------|------|-----------------|
+| Window manager | **dwm** 6.8 | status2d, status2d-systray, attachaside, fibonacci, alwayscenter, restartsig |
+| Terminal | **st** 0.9.3 | kitty-graphics, ligatures, clickurl, clipboard, anysize, font2 |
+| Menu | **dmenu** 5.4 | center, border, desktoponly, inlinePrompt, xyw |
+| Status bar | **slstatus** 1.1 | — |
+| Editor | **Doom Emacs** on `emacs` | — |
+| Login | **SLiM** | — |
+| Lock | slock | **Screenshot** flameshot |
+| Compositor | picom | **Notifications** dunst |
+| Input method | fcitx5 + anthy | **Audio** PipeWire, under Shepherd |
 
-No other distributions are supported. No Wayland, no BSD, no macOS.
+`guix/system.scm` describes one specific machine: an Intel TigerLake laptop,
+EFI, NVMe, two 1920×1080 outputs (eDP-1 left, DP-1 primary right), ABNT2
+keyboard. Adapting it is four edits — see step 2.
 
-## Installation
+## Install
 
-### Arch Linux / Artix Linux
+### 1. Channels and substitutes
 
-```bash
-git clone https://github.com/YOUR_USERNAME/suckless-environment.git
-cd suckless-environment
-less install.sh          # review before running
-./install.sh
-```
-
-The install script will:
-1. Detect your distribution (Arch or Artix)
-2. Install required dependencies via pacman
-3. Build and install all suckless tools to `/usr/local/bin`
-4. Build and install custom utilities to `~/.local/bin`
-5. Copy configuration files to their proper locations
-
-### GNU Guix
-
-This environment supports GNU Guix with a declarative, reproducible configuration.
-
-#### Step 1: Install Guix System
-
-Follow the official installation guide:
-https://guix.gnu.org/manual/en/html_node/Installation.html
-
-#### Step 2: Apply channels (for Nonguix/non-free packages)
+The configuration uses the non-free `linux` kernel and `linux-firmware`,
+without which the Intel WiFi does not come up.
 
 ```bash
 cp guix/channels.scm ~/.config/guix/channels.scm
 guix pull
+
+# Authorise nonguix's build farm on the machine doing the BUILDING.
+# Skip this and reconfigure compiles the kernel and firmware from source.
+wget https://substitutes.nonguix.org/signing-key.pub
+sudo guix archive --authorize < signing-key.pub
 ```
 
-#### Step 3: Apply system configuration
+The built system authorises the same server for itself — that is
+`%nonguix-substitutes` in `guix/system.scm`.
 
-This configures keyboard layout, udev rules, display manager, NetworkManager, Bluetooth, and system services.
+To make two machines build the *same* system, freeze the channel commits:
+
+```bash
+guix describe -f channels > channels-lock.scm    # commit this
+guix time-machine -C channels-lock.scm -- system reconfigure guix/system.scm
+```
+
+### 2. The system
 
 ```bash
 sudo guix system reconfigure guix/system.scm
 ```
 
-**Note:** Edit `guix/system.scm` before running:
-- Update `host-name` to your hostname
-- Update `timezone` to your timezone
-- Update file system UUIDs (use `blkid` to find yours)
-- Update bootloader target (e.g., `/dev/nvme0n1p1` for EFI)
+Reboot and pick **dwm** at the SLiM prompt.
 
-#### Step 4: Apply home configuration
+Every reconfigure is a generation, so a bad one is never fatal — pick an older
+entry in the GRUB menu, or:
 
-This installs all packages, configures PipeWire audio, dunst notifications, fcitx5 input method, and shell profile.
+```bash
+sudo guix system roll-back
+guix system list-generations
+```
+
+`guix/system.scm` is one self-contained file on purpose: a module split needs
+`-L .` on every invocation and has broken `reconfigure` here before. It
+carries **this** machine's facts, so for another one edit `host-name`, the
+user account, the file-system and swap UUIDs (`lsblk -f`), and the `xrandr`
+line in `dwm-start` if your outputs differ.
+
+### 3. The user
 
 ```bash
 guix home reconfigure guix/home.scm
 ```
 
-**Note:** Edit `guix/home.scm` before running:
-- Update `name` to your username
-- Update `home-directory` to your home path
+Shell (`bash/bashrc`: Tokyo Night prompt, `EDITOR=emacsclient`), the PipeWire
+services, and the `~/.config` seeds for dunst, fcitx5 and Doom.
 
-#### Step 5: Build suckless tools from source
+Audio belongs to Shepherd here, which is why `dwm-start` — unlike the Artix
+one — does not launch `pipewire` itself.
+
+### 4. Doom Emacs
+
+The framework is a git checkout and stays imperative:
 
 ```bash
-./install.sh
+git clone https://github.com/doomemacs/core ~/.config/emacs
+~/.config/emacs/bin/doom install
 ```
 
-#### Step 6: Install non-free apps (optional)
+`guix/system.scm` already installs what `doom doctor` asks for. Language
+servers and compilers are deliberately **not** in the system configuration —
+use `guix shell rust rust-analyzer` in the project that needs them.
+
+### 5. Non-free apps (optional)
 
 ```bash
-# Flatpak setup
 flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 flatpak install com.brave.Browser com.discordapp.Discord com.spotify.Client
-
-# Nonguix (for Steam, Nerd Fonts)
-guix install nerd-fonts
 ```
 
-#### Guix Configuration Files
+## Testing it first, in QEMU
 
-```
-guix/
-├── channels.scm    # Channel definitions (with Nonguix)
-├── system.scm      # System config (keyboard, udev, display manager, services)
-├── home.scm        # Home config (packages, pipewire, dunst, shell profile)
-├── manifest.scm    # Flat package list (used by install.sh)
-└── sddm-theme/     # Custom Tokyo Night SDDM login theme
-    ├── theme.conf
-    ├── Main.qml
-    └── metadata.desktop
+`guix system vm` replaces the root file system and boots the kernel directly,
+so it ignores the UUIDs and the bootloader — the same file works as a test VM
+with no second copy to keep in sync:
+
+```bash
+guix system vm guix/system.scm     # prints a script; run it
 ```
 
-#### Guix-Specific Notes
+The account has no password, so in the VM switch to a console with
+**Ctrl+Alt+F1**, log in as `root`, run `passwd void`, then return to SLiM with
+**Ctrl+Alt+F7**.
 
-- **Lock screen:** Uses `slock` (suckless) instead of `betterlockscreen`
-- **Browser:** Defaults to brave via Flatpak
-- **Power profiles:** Uses `cpupower` from `linux-tools` instead of `power-profiles-daemon`
-- **Reproducible:** The entire system can be reproduced from `guix/` config files
+Clone this repository rather than copying the directory: the package
+definitions select their sources with `git-predicate`, which outside a
+checkout falls back to copying everything, build artefacts included.
+
+What a VM cannot tell you: backlight, WiFi firmware, the dual-monitor layout
+and DP-1's 180 Hz.
+
+## Files
+
+```
+guix/channels.scm   channels (nonguix, for the firmware)
+guix/system.scm     the whole desktop: the five packages, services, SLiM
+guix/home.scm       shell, PipeWire, ~/.config seeds
+dwm-start           the session: daemons, monitors, then exec dwm
+dwm/ st/ dmenu/ slstatus/   vendored sources, patches and config.h
+utils/              the C utilities
+doom/               $DOOMDIR: init.el, config.el, packages.el
+bash/ dunst/ fcitx5/        deployed by home.scm (bashrc sets EDITOR=emacsclient)
+```
+
+Machine-specific setup — monitor layout, wallpaper, pointer warp — lives in
+`dwm-start`.
 
 ## Keybindings
 
-The window manager uses **Super (Windows key)** as the primary modifier (MODKEY).
+MODKEY is **Super**.
 
-### Launch Applications
+| Key | Action |
+|-----|--------|
+| `Super+d` / `Super+Return` | dmenu / st |
+| `Super+e` / `Super+Shift+b` | Thunar / Brave |
+| `Super+Shift+e` | Emacs in tmux |
+| `Super+v` / `Super+p` | clipboard history / CPU profile |
+| `Super+j` `Super+k` | focus down / up the stack |
+| `Super+i` | grow the master area |
+| `Super+h` `Super+l` | shrink / widen master |
+| `Super+z` | zoom to master |
+| `Super+b` | toggle the bar |
+| `Super+q` | close window |
+| `Super+t` `Super+f` `Super+m` `Super+r` `Super+Shift+r` | Spiral / Title / Float / Monocle / Dwindle |
+| `Super+space` / `Super+Shift+space` | cycle layout / toggle floating |
+| `Super+[1-9]` | view tag (`Ctrl` toggles, `Shift` sends the window) |
+| `Super+0` / `Super+Shift+0` | view / tag all |
+| `Super+,` `Super+.` | focus the monitor left / right (`Shift` sends) |
+| `Super+Tab` | last tag |
+| `Print` | flameshot |
+| `Ctrl+Alt+Delete` | session menu (lock / logout / reboot / shutdown) |
+| `Super+Shift+q` | quit dwm |
+| Brightness / Volume keys | `brightness-notify`, `pactl` |
 
-| Key | Action | Description |
-|-----|--------|-------------|
-| `Super+d` | dmenu_run | Launch application |
-| `Super+Return` | st | Open terminal |
-| `Super+e` | thunar | Open file manager |
-| `Super+Shift+b` | brave | Launch browser |
+## Utilities (`utils/`)
 
-### Window Management
+Plain POSIX C, one `config.h` each.
 
-| Key | Action | Description |
-|-----|--------|-------------|
-| `Super+j` | focusstack +1 | Focus next window |
-| `Super+k` | focusstack -1 | Focus previous window |
-| `Super+h` | setmfact -0.05 | Shrink master area |
-| `Super+l` | setmfact +0.05 | Expand master area |
-| `Super+z` | zoom | Bring window to master |
-| `Super+q` | killclient | Close focused window |
-| `Super+t` | setlayout tile | Tile layout |
-| `Super+f` | setlayout float | Floating layout |
-| `Super+m` | setlayout monocle | Monocle layout |
-| `Super+space` | setlayout | Cycle layouts |
-| `Super+Shift+space` | togglefloating | Toggle floating |
+```bash
+make -C utils test-util && ./utils/test-util     # 10 cases, pure
+```
 
-### Tag Navigation
+The Guix package runs exactly that during the build. `make -C utils test`
+additionally runs `test-dmenu`, which calls `dmenu_open()` — it spawns a real
+dmenu and blocks on a selection, so run it only from an interactive session,
+never in a build.
 
-| Key | Action | Description |
-|-----|--------|-------------|
-| `Super+[1-9]` | view | Switch to tag |
-| `Super+0` | view | View all tags |
-| `Super+Shift+[1-9]` | tag | Send window to tag |
-| `Super+Shift+0` | tag | Send window to all tags |
+- **battery-notify** — low/critical notifications, 30 s tick
+- **brightness-notify** — brightnessctl plus an OSD notification
+- **dmenu-clipd** / **dmenu-clip** — clipboard daemon and history browser
+- **dmenu-cpupower** — CPU governor selector
+- **dmenu-session** — lock / logout / reboot / shutdown
 
-### Monitor Navigation
+## Differences from the Arch/Artix build
 
-| Key | Action | Description |
-|-----|--------|-------------|
-| `Super+,` | focusmon -1 | Focus previous monitor |
-| `Super+.` | focusmon +1 | Focus next monitor |
-| `Super+Shift+,` | tagmon -1 | Send window to previous monitor |
-| `Super+Shift+.` | tagmon +1 | Send window to next monitor |
+Every one of these is forced by what Guix packages, not a preference:
 
-### System
-
-| Key | Action | Description |
-|-----|--------|-------------|
-| `Super+b` | togglebar | Toggle status bar |
-| `Super+Tab` | view | View last tag |
-| `Super+v` | dmenu-clip | Clipboard history |
-| `Super+p` | dmenu-cpupower | CPU power profile |
-| `Ctrl+Alt+Delete` | dmenu-session | Session menu (lock/logout/reboot/shutdown) |
-| `Super+Shift+q` | quit | Exit dwm |
-| `Super+Ctrl+Shift+q` | quit (1) | Force quit dwm |
-
-### Media Keys
-
-| Key | Action | Description |
-|-----|--------|-------------|
-| `Print` | flameshot gui | Screenshot (region select, annotate, copy) |
-| `Brightness Up` | brightness-notify up | Increase brightness |
-| `Brightness Down` | brightness-notify down | Decrease brightness |
-| `Volume Up` | pactl set-sink-volume +5% | Increase volume |
-| `Volume Down` | pactl set-sink-volume -5% | Decrease volume |
-| `Volume Mute` | pactl set-sink-mute toggle | Toggle mute |
-
-## Utilities
-
-### battery-notify
-Monitors battery level and sends notifications via dunst when low. Designed to run from cron or a timer.
-
-### brightness-notify
-Adjusts display brightness using brightnessctl and shows an OSD notification.
-
-### dmenu-clip
-Clipboard history browser. Shows cached clipboard entries via dmenu, lets you restore any entry.
-
-### dmenu-clipd
-Clipboard daemon that watches for clipboard changes and caches them to disk. Runs as a background service.
-
-### dmenu-cpupower
-CPU power profile selector. Switches between performance, balanced, and power-saving modes using cpupower (Guix) or power-profiles-daemon (Arch/Artix).
-
-### dmenu-session
-Session menu for lock screen, logout, reboot, and shutdown. Uses loginctl for session management.
+- **Lock:** `slock`, not `betterlockscreen`, which Guix does not package. It is
+  setuid through `screen-locker-service-type`; without that service it cannot
+  authenticate.
+- **Login:** **SLiM**. Guix has no `ly`. The session entry comes from the
+  `dwm.desktop` that `suckless-session` installs — display managers discover
+  sessions from `share/xsessions`.
+- **Browser:** Brave via Flatpak.
+- **Power profiles:** `cpupower`. Guix has no `power-profiles-daemon`, and no
+  `linux-tools` package.
+- **Input method:** fcitx5 + **anthy**; Guix does not package mozc.
+- **Fonts:** the configs ask for `Iosevka`, not `Iosevka Nerd Font` — Guix has
+  no Nerd-patched Iosevka. The glyphs slstatus prints still appear:
+  `font-nerd-symbols` is installed and dwm, st and Pango all fall back per
+  glyph on their own (`drw.c`'s nomatches cache, `x.c`'s frc cache).
+- **No `~/.xprofile`:** sourcing it is an Arch/Debian display-manager
+  convention that SLiM does not follow. The three input-method exports live in
+  `dwm-start`, which is the only thing guaranteed to run.
+- **Audio is a Shepherd service** (`home-pipewire-service-type`), so
+  `dwm-start` does not start the daemons by hand; doing both would race.
+- **`dwm-start` sets `XDG_DATA_DIRS`.** `dmenu_run_desktop` scans
+  `$XDG_DATA_DIRS/applications`, and its built-in default
+  (`/usr/local/share:/usr/share`) does not exist on Guix — without this the
+  launcher lists nothing.
 
 ## Troubleshooting
 
-### "command not found" for dependencies
+**The dwm session is missing from the SLiM list.** SLiM discovers sessions
+from `.desktop` files; check the reconfigure actually took:
 
 ```bash
-which dmenu st dwm slstatus   # check if binaries are installed
-echo $PATH                    # verify ~/.local/bin is in PATH
+ls /run/current-system/profile/share/xsessions/
 ```
 
-Ensure `base-devel` (Arch/Artix) is installed. If using bash, add to `~/.bashrc`:
-```bash
-export PATH="$HOME/.local/bin:$PATH"
-```
-
-### AUR helper fails (Arch/Artix)
+**slock does nothing, or will not unlock.** It needs to be setuid, which
+`screen-locker-service-type` arranges:
 
 ```bash
-which yay paru   # check if AUR helper is installed
+ls -l /run/setuid-programs/slock     # expect -rws...
 ```
 
-Install yay or paru manually first, or use pacman directly for dependencies.
-
-### brightnessctl permissions
+**Fonts render as boxes.** Nerd Fonts do *not* need the Nonguix channel, and
+there is no `nerd-fonts` package — nor a Nerd-patched Iosevka:
 
 ```bash
-brightnessctl -l                    # list available devices
-groups                              # check your groups
-ls -la /sys/class/backlight/        # check backlight permissions
+fc-list | grep -i "iosevka\|nerd"    # expect Iosevka + Symbols Nerd Font
+fc-cache -f
 ```
 
-Add user to video group: `sudo usermod -aG video $USER`
-
-### Session doesn't start
+**Super+d opens an empty menu, or launches nothing.** `dmenu_run_desktop`
+reads `$XDG_DATA_DIRS/applications` and pipes the choice into `gtk-launch`
+(from `gtk+`). Check both:
 
 ```bash
-cat ~/.xprofile
-cat ~/.local/bin/dwm-start
+echo $XDG_DATA_DIRS | tr : '\n' | grep profile
+command -v gtk-launch
 ```
 
-Ensure dwm-start is executable and referenced in `~/.xprofile`.
-
-### Build fails with "X11/Xlib.h: No such file" (Guix)
-
-Ensure `pkg-config` is available:
-```bash
-guix install pkg-config
-```
-
-### slock fails with "cannot open display" (Guix)
+**No battery or brightness notifications.** Those utilities shell out to
+`notify-send`, which comes from `libnotify` — separate from the `dunst`
+daemon that displays them:
 
 ```bash
-guix install slock
-echo $DISPLAY  # should show :0 or similar
+command -v notify-send && notify-send test
 ```
 
-### cpupower not found (Guix)
+**No sound.** PipeWire runs as a Guix Home service, not from `dwm-start`:
 
 ```bash
-guix install linux-tools
+herd status pipewire
 ```
 
-### Fonts not rendering (Guix)
+**Reconfigure is compiling the kernel.** nonguix's substitute server was never
+authorised on the building machine — see step 1.
 
-Nerd Fonts require the Nonguix channel:
-```bash
-guix pull
-guix install nerd-fonts
-```
+**cpupower not found.** The package is `cpupower`. There is no `linux-tools`
+in Guix; that name has cost this repository a commit before.
 
 ## Contributing
 
-For contributor documentation, AI assistant context, and project roadmap, see:
-
-- [CLAUDE.md](./CLAUDE.md) — AI assistant context and project specifications
+`CLAUDE.md` holds the project context: the reference machine, the parity
+matrix, and the Guix facts behind these decisions.
 
 ## License
 
-See individual LICENSE files in each subdirectory (dwm/, st/, dmenu/, slstatus/, utils/).
+See the LICENSE files in each subdirectory (dwm/, st/, dmenu/, slstatus/,
+utils/).

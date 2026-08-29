@@ -18,13 +18,16 @@ XINERAMAFLAGS = -DXINERAMA
 
 # freetype
 FREETYPELIBS = -lfontconfig -lXft
-FREETYPEINC = $(shell $(PKG_CONFIG) --variable=includedir freetype2 2>/dev/null || echo /usr/include/freetype2)
+# NOTE: --variable=includedir returns the PARENT of the freetype headers
+# (/usr/include), not the directory holding ft2build.h.  Only --cflags
+# gets it right, and it is correct on Arch and in the Guix store alike.
+FREETYPECFLAGS = $(shell $(PKG_CONFIG) --cflags freetype2 2>/dev/null || echo -I/usr/include/freetype2)
 # OpenBSD (uncomment)
 #FREETYPEINC = ${X11INC}/freetype2
 #MANPREFIX = ${PREFIX}/man
 
 # includes and libs
-INCS = -I${X11INC} -I${FREETYPEINC}
+INCS = -I${X11INC} ${FREETYPECFLAGS}
 LIBS = -L${X11LIB} -lX11 ${XINERAMALIBS} ${FREETYPELIBS}
 
 # flags

@@ -27,8 +27,11 @@ static const int systraypinningfailfirst = 1;   /* 1: if pinning fails, display 
 static const int showsystray        = 1;        /* 0 means no systray */
 static const int showbar            = 1;        /* 0 means no bar */
 static const int topbar             = 1;        /* 0 means bottom bar */
-static const char *fonts[]          = { "Iosevka Nerd Font:size=14" };
-static const char dmenufont[]       = "Iosevka Nerd Font:size=14";
+/* Guix packages font-iosevka (family "Iosevka"); there is no Nerd-patched
+ * Iosevka. The Nerd glyphs slstatus prints still resolve: drw.c falls back
+ * per glyph (see the nomatches cache in drw_text) to font-nerd-symbols. */
+static const char *fonts[]          = { "Iosevka:size=14" };
+static const char dmenufont[]       = "Iosevka:size=14";
 static const char col_bg[]          = "#1a1b26";
 static const char col_fg[]          = "#a9b1d6";
 static const char col_border[]      = "#414868";

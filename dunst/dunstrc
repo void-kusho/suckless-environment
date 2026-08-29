@@ -20,7 +20,7 @@
 
     sort = yes
 
-    font = Iosevka Nerd Font 11
+    font = Iosevka 11
     line_height = 0
     markup = full
     format = "<b>%s</b>\n%b"

@@ -5,7 +5,9 @@
  *
  * font: see http://freedesktop.org/software/fontconfig/fontconfig-user.html
  */
-static char *font = "Iosevka Nerd Font Mono:size=16:antialias=true:autohint=true";
+/* Iosevka is monospace by default; see the note in dwm/config.h. st does
+ * its own per-glyph fallback too (the frc cache in x.c). */
+static char *font = "Iosevka:size=16:antialias=true:autohint=true";
 static char *font2 = "Roboto Mono for Powerline:pixelsize=12:antialias=true:autohint=true";
 static int borderpx = 1;
 
