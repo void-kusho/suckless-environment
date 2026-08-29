@@ -410,21 +410,25 @@ tuigreet greeter launches this as the user's Wayland session." )
    #:user-comment "Test user"
    ;; Simplest free kernel for the VM
    #:kernel linux-libre
-   ;; For `guix system vm` this is ignored (it builds an image).
-   ;; For `sudo guix system reconfigure` inside the VM, change the line
-   ;; below to match your VM's real root — run `lsblk -f` to see it.
-   ;; Common on VirtualBox is /dev/vda1 or /dev/sda1; label guix-root
-   ;; only exists if you labeled it that way at install.
+   ;; Matched to your guix-btw VM (lsblk -f on 2026-08-28):
+   ;;   sda1 vfat A729-FD5E  /boot/efi
+   ;;   sda2 swap ac676da8-dbb5-4264-9867-db365f3dd1f7
+   ;;   sda3 ext4 f3632921-5496-49a7-922e-55915ae713a  /
+   ;; For `guix system vm` this FS is ignored (it builds an image).
    #:file-systems
    (append
     (list (file-system
+           (mount-point "/boot/efi")
+           (device (uuid "A729-FD5E" 'fat32))
+           (type "vfat"))
+          (file-system
            (mount-point "/")
-           (device "/dev/vda1")
+           (device (uuid "f3632921-5496-49a7-922e-55915ae713a" 'ext4))
            (type "ext4")))
     %base-file-systems)
-   #:swap-devices '()
-   #:bootloader grub-bootloader
-   #:bootloader-targets '("/dev/vda")))
+   #:swap-devices (list (swap-space (target (uuid "ac676da8-dbb5-4264-9867-db365f3dd1f7"))))
+   #:bootloader grub-efi-bootloader
+   #:bootloader-targets '("/boot/efi")))
 
 ;; --------------------------------------------------------------------
 ;; Which host to build.  This value is what `guix system reconfigure`
