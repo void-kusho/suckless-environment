@@ -162,11 +162,14 @@ tuigreet greeter launches this as the user's Wayland session." )
    wmenu                     ; dmenu backend for the suckless dmenu-* utils
    wl-clipboard              ; wl-copy/wl-paste (dmenu-clip, dmenu-clipd)
    grim slurp                ; Print-key screenshots
-   swaylock                  ; lock screen (dmenu-session)
-   swaybg                    ; wallpaper (autostart hook)
-   swayidle                  ; idle -> lock (autostart hook)
-   wlr-randr                 ; monitor layout (autostart hook)
-   xwayland                  ; X11 app fallback under Wayland
+    swaylock                  ; lock screen (dmenu-session)
+    swaybg                    ; wallpaper (autostart hook)
+    swayidle                  ; idle -> lock (autostart hook)
+    wlr-randr                 ; monitor layout (autostart hook)
+    ;; xwayland is `xwayland` on Guix master but `xorg-server-xwayland` on
+    ;; older channels; keep the list simple and let dwl pull it as needed.
+    ;; Add it explicitly if your channel provides it:
+    ;;   (specification->package "xwayland") ; or "xorg-server-xwayland"
 
    ;; session daemons & helpers referenced by the launcher / keybinds
    dunst                     ; notifications (battery/brightness alerts)
