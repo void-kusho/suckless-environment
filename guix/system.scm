@@ -419,14 +419,14 @@ tuigreet greeter launches this as the user's Wayland session." )
    (append
     (list (file-system
            (mount-point "/boot/efi")
-           (device (uuid "A729-FD5E" 'fat32))
+           (device "/dev/sda1")
            (type "vfat"))
           (file-system
            (mount-point "/")
-           (device (uuid "f3632921-5496-49a7-922e-55915ae713a" 'ext4))
+           (device "/dev/sda3")
            (type "ext4")))
     %base-file-systems)
-   #:swap-devices (list (swap-space (target (uuid "ac676da8-dbb5-4264-9867-db365f3dd1f7"))))
+   #:swap-devices (list (swap-space (target "/dev/sda2")))
    #:bootloader grub-efi-bootloader
    #:bootloader-targets '("/boot/efi")))
 
