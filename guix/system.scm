@@ -410,11 +410,16 @@ tuigreet greeter launches this as the user's Wayland session." )
    #:user-comment "Test user"
    ;; Simplest free kernel for the VM
    #:kernel linux-libre
+   ;; For `guix system vm` this is ignored (it builds an image).
+   ;; For `sudo guix system reconfigure` inside the VM, change the line
+   ;; below to match your VM's real root — run `lsblk -f` to see it.
+   ;; Common on VirtualBox is /dev/vda1 or /dev/sda1; label guix-root
+   ;; only exists if you labeled it that way at install.
    #:file-systems
    (append
     (list (file-system
            (mount-point "/")
-           (device (file-system-label "guix-root"))
+           (device "/dev/vda1")
            (type "ext4")))
     %base-file-systems)
    #:swap-devices '()
