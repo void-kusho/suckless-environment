@@ -20,9 +20,9 @@ in
     version = "6.8";
     src = ../dwm;
     buildInputs = with pkgs; [
-      xorg.libX11
-      xorg.libXinerama
-      xorg.libXft # pulls in Xrender
+      libx11
+      libxinerama
+      libxft # pulls in Xrender
       fontconfig # included directly by drw.c
       freetype # included directly by drw.c
     ];
@@ -33,9 +33,9 @@ in
     version = "5.4";
     src = ../dmenu;
     buildInputs = with pkgs; [
-      xorg.libX11
-      xorg.libXinerama
-      xorg.libXft
+      libx11
+      libxinerama
+      libxft
       fontconfig
       freetype
     ];
@@ -50,9 +50,9 @@ in
       ncurses # provides `tic`, used to compile st.info
     ];
     buildInputs = with pkgs; [
-      xorg.libX11
-      xorg.libXft
-      xorg.libXrender # kitty-graphics patch links -lXrender
+      libx11
+      libxft
+      libxrender # kitty-graphics patch links -lXrender
       imlib2 # kitty-graphics patch (graphics.c)
       harfbuzz # ligatures patch (hb.c)
       fontconfig
@@ -75,7 +75,7 @@ in
     name = "slstatus";
     version = "1.1";
     src = ../slstatus;
-    buildInputs = with pkgs; [ xorg.libX11 ];
+    buildInputs = with pkgs; [ libx11 ];
   };
 
   # Custom C utilities: battery-notify, brightness-notify, dmenu-session,
@@ -85,8 +85,8 @@ in
     version = "1.0";
     src = ../utils;
     buildInputs = with pkgs; [
-      xorg.libX11 # dmenu-clipd
-      xorg.libXfixes # dmenu-clipd
+      libx11 # dmenu-clipd
+      libxfixes # dmenu-clipd
     ];
   };
 }

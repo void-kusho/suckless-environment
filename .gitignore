@@ -7,3 +7,12 @@ result-
 utils/brightness-notify/brightness-notify
 utils/*/test-*
 tests/test-*
+
+# These utilities carry no config.h on this branch -- their backends are in
+# the .c files. The entries below only stop the guix branch's generated
+# copies from being committed here after a branch switch.
+utils/dmenu-session/config.h
+utils/dmenu-cpupower/config.h
+
+# nix build output symlink
+result

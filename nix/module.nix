@@ -127,29 +127,20 @@ let
     '';
   };
 
-  # Helix: declarative editor configuration. Helix reads its config from
-  # exactly one place -- ~/.config/helix -- with no /etc/xdg fallback and
-  # no env override (helix-loader hardcodes it), so we ship the config as
-  # a seed that the hx wrapper copies into ~/.config/helix on FIRST run
-  # (classic /etc/skel semantics). Later edits in ~/.config are yours and
-  # survive rebuilds; delete the dir to re-seed from the repo.
-  helixSeed = pkgs.runCommand "helix-seed" { } ''
-    mkdir -p $out/helix/themes
-    install ${../helix/config.toml} $out/helix/config.toml
-    install ${../helix/themes/catpuccin_mocha.toml} $out/helix/themes/catpuccin_mocha.toml
+  # Doom Emacs: $DOOMDIR is read-only configuration, and Doom honours the
+  # environment variable, so it can point straight into the store -- no seed
+  # copy, no first-run hook, nothing to drift. Doom's mutable state lives in
+  # ~/.config/emacs and ~/.local/share/doom, both untouched by this.
+  #
+  # The framework itself stays a git checkout (`doom install'); pinning it
+  # here would mean vendoring Doom, which is not this repository's job.
+  doomDir = pkgs.runCommand "doom-config" { } ''
+    mkdir -p $out
+    install ${../doom/init.el} $out/init.el
+    install ${../doom/config.el} $out/config.el
+    install ${../doom/packages.el} $out/packages.el
   '';
 
-  helix = pkgs.writeShellScriptBin "hx" ''
-    SEED=${helixSeed}/helix
-    CFG="''${XDG_CONFIG_HOME:-$HOME/.config}/helix"
-    if [ ! -f "$CFG/config.toml" ]; then
-      mkdir -p "$CFG"
-      cp "$SEED/config.toml" "$CFG/config.toml"
-      cp -r "$SEED/themes" "$CFG/themes"
-      echo "hx: seeded $CFG from ${helixSeed}"
-    fi
-    exec ${pkgs.helix}/bin/hx "$@"
-  '';
 in
 
 {
@@ -195,20 +186,23 @@ in
         xsel
         picom # compositor (installed; launch from autostart hook if wanted)
         pulseaudio # provides pactl for the volume media keys
+        pamixer # slstatus' volume segment shells out to it (slstatus/config.h)
+        libnotify # notify-send -- battery-notify and brightness-notify call it
         betterlockscreen # lock screen used by dmenu-session
 
         # applications bound in dwm/config.h
-        xfce.thunar
         brave
 
-        # thunar integrations
-        #   * "Open Terminal Here": exo-open resolves the terminal through
-        #     helpers.rc (seeded below) -> the st desktop entry also added
-        #     below.
-        #   * "Extract Here" / "Create Archive...": thunar-archive-plugin
-        #     delegates to xarchiver; p7zip/zip/unzip are its backends.
-        xfce.exo
-        xfce.thunar-archive-plugin
+        # gtk-launch: dmenu_run_desktop pipes the selection into it, so
+        # Super+d lists applications and launches nothing without this.
+        gtk3
+
+        # Thunar itself comes from programs.thunar below, which is what wires
+        # up its D-Bus services; these are the backends its plugins call.
+        #   * "Open Terminal Here" goes through exo-open -> helpers.rc (below)
+        #     -> the st desktop entry (below).
+        #   * "Extract Here" delegates to xarchiver.
+        xfce4-exo
         xarchiver
         p7zip
         zip
@@ -217,10 +211,24 @@ in
         # bluetooth stack (blueman available; pair via cli or blueman-manager)
         blueman
 
-        neofetch # greeting on new st terminals (see bash/bashrc)
+        fastfetch # greeting on new st terminals; nixpkgs dropped neofetch
 
-        # standard editor, config from helix/config.toml
-        helix
+        # Doom Emacs and what `doom doctor' asks for. Language servers and
+        # compilers are deliberately absent: `nix shell nixpkgs#rust-analyzer'
+        # in the project that needs one beats installing every toolchain on
+        # every machine.
+        emacs
+        git
+        ripgrep
+        fd
+        tmux
+        cmake
+        libtool
+        gnumake
+        pkg-config
+        poppler-utils
+        autoconf
+        automake
 
         # desktop entry so exo/gio can find st as a TerminalEmulator
         stDesktopEntry
@@ -264,9 +272,12 @@ in
       interactiveShellInit = builtins.readFile ../bash/bashrc;
       completion.enable = true;
     };
-    # NixOS defaults EDITOR to nano at the same priority; this desktop is
-    # deliberately Helix-centric.
-    environment.variables.EDITOR = lib.mkForce "hx";
+    # NixOS defaults EDITOR to nano at the same priority. emacsclient reuses a
+    # running daemon and falls back to a fresh emacs when there is none.
+    environment.variables = {
+      EDITOR = lib.mkForce "emacsclient -a emacs";
+      DOOMDIR = "${doomDir}";
+    };
 
     # Japanese input: fcitx5 + mozc. The option exports GTK_IM_MODULE /
     # QT_IM_MODULE / XMODIFIERS for every session, so no .xprofile is
@@ -287,6 +298,20 @@ in
     # system-wide; a user ~/.config/picom/picom.conf overrides it.
     environment.etc."xdg/picom/picom.conf".source = ../picom/picom.conf;
 
+    # Thunar through its own NixOS module rather than as a bare package: the
+    # module is what registers thunar's D-Bus services and loads the plugins.
+    # A Thunar dropped into systemPackages -- which is what this module used
+    # to do -- has no thumbnails, no trash and cannot mount removable media.
+    programs.thunar = {
+      enable = true;
+      plugins = with pkgs; [
+        thunar-archive-plugin # "Extract Here" / "Create Archive..."
+        thunar-volman # removable media; moved out of xfce. in 26.05
+      ];
+    };
+    services.gvfs.enable = true; # trash, mounting, network shares
+    services.tumbler.enable = true; # thumbnails
+
     # Preferred applications for Xfce helpers (exo-open, used by Thunar's
     # native "Open Terminal Here"). Values are desktop-file ids. A user
     # ~/.config/xfce4/helpers.rc overrides this.
@@ -302,7 +327,7 @@ in
     fonts.packages = with pkgs; [
       nerd-fonts.iosevka
       noto-fonts-cjk-sans
-      noto-fonts-emoji
+      noto-fonts-color-emoji
     ];
     fonts.fontconfig.defaultFonts.monospace = [
       "Iosevka Nerd Font Mono"

@@ -1,7 +1,7 @@
 # Throwaway VM configuration for TESTING the environment.
 #
 # This is a SEPARATE host -- production configurations (hosts/laptop.nix,
-# hosts/minimal.nix, nix/module.nix) are not modified by anything here,
+# hosts/laptop.nix, nix/module.nix) are not modified by anything here,
 # and nothing in the VM leaks back into them.
 #
 # Build & run (any machine with Nix + flakes):
