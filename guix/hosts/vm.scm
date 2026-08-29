@@ -4,7 +4,14 @@
 ;;; expected), graphics are emulated (virtio).
 
 (eval-when (expand load eval)
-  (add-to-load-path (string-append (dirname (current-filename)) "/../..")))
+  (let ((f (current-filename)))
+    (when f
+      (add-to-load-path (dirname (dirname (dirname f))))
+      (add-to-load-path (string-append (dirname f) "/../.."))
+      (add-to-load-path (string-append (dirname f) "/.."))))
+  (add-to-load-path ".")
+  (add-to-load-path "guix")
+  (add-to-load-path "guix/hosts"))
 
 (define-module (guix hosts vm)
   #:use-module (gnu system)

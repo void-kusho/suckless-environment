@@ -74,7 +74,7 @@ cp guix/channels.scm ~/.config/guix/channels.scm
 guix pull
 
 # 3. Reconfigure the system (compiles suckless/packages.scm + guix/services.scm; desktop)
-sudo guix system reconfigure guix/hosts/vm.scm   # use laptop.scm on real hardware
+sudo guix system reconfigure -L . guix/hosts/vm.scm   # use laptop.scm on real hardware
 
 # 4. Reconfigure home (checks home.scm + seeds)
 guix home reconfigure guix/home.scm
@@ -84,7 +84,7 @@ make -C utils install PREFIX="$HOME/.local"
 ```
 
 To build an ephemeral QEMU VM image instead of installing, run
-`guix system vm guix/hosts/vm.scm`; it emits a script that boots the
+`guix system vm -L . guix/hosts/vm.scm`; it emits a script that boots the
 configured OS in QEMU.
 
 ## 4. What to verify
@@ -111,7 +111,7 @@ configured OS in QEMU.
 Reconfigure is incremental — after editing any `.scm` file, rerun:
 
 ```bash
-sudo guix system reconfigure guix/hosts/laptop.scm   # or vm.scm; after editing hosts/services/suckless/packages.scm
+sudo guix system reconfigure -L . guix/hosts/laptop.scm   # or vm.scm; after editing hosts/services/suckless/packages.scm
 guix home reconfigure guix/home.scm                  # after editing home.scm
 ```
 

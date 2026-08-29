@@ -118,7 +118,7 @@ You don't need Guix installed on the host to validate the config — the hosts l
 **A) Ephemeral QEMU VM (fastest, no VirtualBox):**
 ```bash
 cp guix/channels.scm ~/.config/guix/channels.scm && guix pull
-guix system vm guix/hosts/vm.scm  # builds VM image + prints .../bin/run-vm.sh
+guix system vm -L . guix/hosts/vm.scm  # builds VM image + prints .../bin/run-vm.sh
 ./gnu/store/...-run-vm.sh       # boots VM; login on tty1 via greetd/tuigreet → dwl
 ```
 
@@ -127,7 +127,7 @@ Create a 30GB VM (Arch Linux 64-bit, 4GB RAM), boot the Guix System base ISO, in
 ```bash
 git clone <this-repo> && cd suckless-environment
 cp guix/channels.scm ~/.config/guix/channels.scm && guix pull
-sudo guix system reconfigure guix/hosts/laptop.scm   # or vm.scm inside the VM; primary compile gate
+sudo guix system reconfigure -L . guix/hosts/laptop.scm   # or vm.scm inside the VM; primary compile gate
 guix home reconfigure guix/home.scm
 make -C utils install PREFIX="$HOME/.local"
 ```

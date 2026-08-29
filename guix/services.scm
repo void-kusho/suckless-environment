@@ -10,7 +10,12 @@
 ;;; found via the repo root on %load-path (see the eval-when below).
 
 (eval-when (expand load eval)
-  (add-to-load-path (string-append (dirname (current-filename)) "/..")))
+  (let ((f (current-filename)))
+    (when f
+      (add-to-load-path (dirname (dirname f)))
+      (add-to-load-path (string-append (dirname f) "/.."))))
+  (add-to-load-path ".")
+  (add-to-load-path "guix"))
 
 (define-module (guix services)
   #:use-module (gnu)
