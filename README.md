@@ -105,33 +105,19 @@ guix-vm.md          # VirtualBox test plan for the Guix config
 
 ## Testing in a VM
 
-You don't need Guix installed on the host to validate the config — build a throwaway VM from `guix/system.scm`. The file evaluates to whatever host is on its **last line** (`guix/system.scm:413`):
+No Guix on the host? `guix/system.scm` has two hosts — flip the **last line** to choose:
 
 - `%suckless-laptop` — real hardware (default)
-- `%suckless-vm` — QEMU/VirtualBox test host (no backlight, `/dev/vda`, free kernel)
+- `%suckless-vm` — VM (`/dev/vda`, `linux-libre`)
 
-Switch the last line to `%suckless-vm`, then on a machine with Guix:
-
-**A) Ephemeral QEMU VM (fastest, no VirtualBox):**
 ```bash
-cp guix/channels.scm ~/.config/guix/channels.scm && guix pull
-guix system vm guix/system.scm  # builds VM image + prints .../bin/run-vm.sh
-./gnu/store/...-run-vm.sh       # boots VM; login on tty1 via greetd/tuigreet → dwl
+# QEMU, no VirtualBox needed:
+guix system vm guix/system.scm  # after flipping to %suckless-vm
+# VirtualBox (persistent): see guix-vm.md — then inside the VM:
+sudo guix system reconfigure guix/system.scm
 ```
 
-**B) VirtualBox VM (persistent):**
-Create a 30GB VM (Arch Linux 64-bit, 4GB RAM), boot the Guix System base ISO, install a minimal `/mnt/etc/config.scm`, then inside the VM:
-```bash
-git clone <this-repo> && cd suckless-environment
-# flip last line of guix/system.scm: %suckless-laptop -> %suckless-vm
-cp guix/channels.scm ~/.config/guix/channels.scm && guix pull
-sudo guix system reconfigure guix/system.scm   # primary compile gate
-guix home reconfigure guix/home.scm
-make -C utils install PREFIX="$HOME/.local"
-```
-Full VirtualBox steps, what to verify (greetd on tty1, `dwl | dwl-status`, `wmenu`, `wl-copy`, `swaylock`, PipeWire), and iterating are in `guix-vm.md`.
-
-> Snapshot the VM before the first reconfigure.
+Full steps, what to verify (greetd, `dwl-status`, `wmenu`, `swaylock`), and `guix home` / `make -C utils` are in `guix-vm.md`.
 
 ## Keybindings
 
