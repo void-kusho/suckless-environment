@@ -175,9 +175,9 @@ tuigreet greeter launches this as the user's Wayland session." )
    dunst                     ; notifications (battery/brightness alerts)
    libnotify                 ; provides notify-send (used by the Print keybind)
    lxsession                 ; provides lxpolkit, the polkit agent
-   brightnessctl             ; brightness engine used by brightness-notify
-   pulseaudio                ; provides pactl for volume media keys
-   linux-tools               ; provides cpupower (dmenu-cpupower backend)
+    brightnessctl             ; brightness engine used by brightness-notify
+    pulseaudio                ; provides pactl for volume media keys
+    cpupower                  ; CPU power profiles (dmenu-cpupower backend)
 
    ;; input method — fcitx5 is launched by the session launcher (dwl-start /
    ;; the autostart hook) and the IM env vars are seeded in guix/home.scm.
