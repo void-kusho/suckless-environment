@@ -97,6 +97,35 @@ The VM also boots straight into dwm (autologin + `startx` from
 nothing, and `/etc/profile` sources `set-environment` before that hook, so
 PATH is already correct when X starts.
 
+## Timezone, language and theme
+
+None of the three were configured at all, so the system ran in UTC, with
+NixOS's stock `en_US.UTF-8` and no GTK theme.
+
+* **The system is Japanese**, with `LANGUAGE=ja:en` so anything without a
+  Japanese translation falls back to English rather than to the C locale —
+  `LANG` alone does not do that. `ja_JP`, `en_US`, `pt_BR` and `C` are all
+  generated, and `specialisation.english` is a whole second system built
+  alongside, so switching needs no rebuild.
+* The interface font is Noto Sans CJK JP: `noto-fonts` (Latin only) was not
+  enough once the UI stopped being English.
+* **There is deliberately no GUI for the language.** `/etc/locale.conf` is a
+  store symlink, so `localectl set-locale` cannot write to it; on NixOS the
+  declarative option is the only honest answer, and pre-generating the
+  locales is what makes it cheap.
+* The **theme** does get a GUI: `lxappearance` (GTK theme, icons, cursor, UI
+  font) and `qt6Packages.fcitx5-configtool` (input methods). The module ships
+  `/etc/xdg/gtk-3.0/settings.ini` with Arc-Dark, Papirus-Dark, Adwaita
+  cursors and Noto Sans 11 — a user `~/.config/gtk-3.0/settings.ini`, which
+  is exactly what lxappearance writes, overrides it.
+* `noto-fonts` was added for that interface font: the module previously
+  installed only Iosevka, CJK and emoji, so GTK apps had no sans to fall back
+  to.
+* The reference machine's icon set (`TokyoNight-SE`) and cursors
+  (`DeppinWhite-cursors`) are personal downloads in `~/.local/share/icons`.
+  They are user state and are not packaged here; they keep working if that
+  directory comes along.
+
 ## Decisions
 
 1. **Doom Emacs replaces Helix**, and `$DOOMDIR` points into the store via

@@ -233,7 +233,28 @@ in
         # bluetooth stack (blueman available; pair via cli or blueman-manager)
         blueman
 
-        fastfetch # greeting on new st terminals; nixpkgs dropped neofetch
+        # Look and feel. dwm draws nothing but window borders, so without a
+        # GTK theme every GTK app -- Thunar, Brave's dialogs, lxappearance
+        # itself -- comes up in raw light Adwaita against a Tokyo Night
+        # desktop. lxappearance is the GUI that changes it.
+        # Configuring the system without a desktop environment. TUI where one
+        # exists, GUI only where it does not.
+        wifitui # TUI: wifi -- the same 0.13.0 the reference machine runs
+        # nmtui also ships with networkmanager, and covers wired and VPN.
+        pulsemixer # TUI: audio devices, volume, default sink
+        bluetuith # TUI: bluetooth pairing
+        arandr # GUI: monitor layout, writes an xrandr line for autostart.sh
+        lxappearance # GUI: GTK theme, icons, cursor, UI font
+        arc-theme # Arc-Dark, the theme the reference machine uses
+        papirus-icon-theme
+        adwaita-icon-theme # cursor fallback, and what GTK expects to exist
+        qt6Packages.fcitx5-configtool # GUI: input methods and switch keys
+
+        # nixpkgs dropped neofetch as unmaintained. hyfetch ships neowofetch,
+        # the maintained fork, which reads the same ~/.config/neofetch/config.conf
+        # -- so the greeting is the one from the reference machine, not a
+        # different tool with a different config format.
+        hyfetch
 
         # Doom Emacs and what `doom doctor' asks for. Language servers and
         # compilers are deliberately absent: `nix shell nixpkgs#rust-analyzer'
@@ -344,17 +365,85 @@ in
       WebBrowserDismissed=true
     '';
 
-    # Fonts: Iosevka Nerd Font everywhere in the configs; Noto CJK covers
-    # the Japanese tag glyphs and status text; emoji for notifications.
+    # Timezone. Was never set, so the system -- the test VM included -- ran
+    # in UTC.
+    time.timeZone = lib.mkDefault "America/Sao_Paulo";
+
+    # Language: Japanese, falling back to English wherever a program has no
+    # Japanese translation. That fallback is LANGUAGE, gettext's priority
+    # list -- LANG alone would leave untranslated programs in the C locale
+    # rather than in English.
+    #
+    # LC_TIME follows suit, which also matches the status bar: slstatus
+    # already prints 年月日.
+    #
+    # There is no TUI or GUI for this on NixOS: /etc/locale.conf is a symlink
+    # into the store, so `localectl set-locale' cannot write to it. The
+    # english specialisation below is the switch.
+    i18n.defaultLocale = lib.mkDefault "ja_JP.UTF-8";
+    i18n.supportedLocales = lib.mkDefault [
+      "C.UTF-8/UTF-8"
+      "ja_JP.UTF-8/UTF-8"
+      "en_US.UTF-8/UTF-8"
+      "pt_BR.UTF-8/UTF-8"
+    ];
+    i18n.extraLocaleSettings = lib.mkDefault {
+      LANGUAGE = "ja:en";
+    };
+
+    # A whole second system in English, built alongside the Japanese one.
+    # Both live in the store at once, so switching costs no rebuild and no
+    # network: pick "english" in the boot menu, or
+    #
+    #   sudo /run/current-system/specialisation/english/bin/switch-to-configuration switch
+    #
+    # then log out and back in -- a running session keeps the environment it
+    # started with. For one session only, none of this is needed:
+    # `LANG=en_US.UTF-8 startx' is enough, because the locale is already
+    # generated.
+    #
+    # Note this is the *interface* language. TYPING Japanese is fcitx5 + mozc
+    # below, which toggles with a hotkey and needs no system change at all.
+    specialisation.english.configuration = {
+      i18n.defaultLocale = lib.mkForce "en_US.UTF-8";
+      i18n.extraLocaleSettings = lib.mkForce { LANGUAGE = "en"; };
+    };
+
+    # System-wide GTK defaults. A user ~/.config/gtk-3.0/settings.ini -- which
+    # is exactly what lxappearance writes -- overrides all of this.
+    environment.etc."xdg/gtk-3.0/settings.ini".text = ''
+      [Settings]
+      gtk-theme-name=Arc-Dark
+      gtk-icon-theme-name=Papirus-Dark
+      gtk-cursor-theme-name=Adwaita
+      gtk-font-name=Noto Sans CJK JP 11
+      gtk-application-prefer-dark-theme=1
+      gtk-xft-antialias=1
+      gtk-xft-hinting=1
+      gtk-xft-hintstyle=hintmedium
+    '';
+
+    # Fonts: Iosevka Nerd Font everywhere in the configs; Noto Sans is the
+    # GTK interface font above; Noto CJK covers the Japanese tag glyphs and
+    # status text; emoji for notifications.
+    # Noto Sans CJK JP is the interface font: it covers Latin and Japanese in
+    # one family, which a Japanese-first desktop needs everywhere, not just in
+    # the tag names.
     fonts.packages = with pkgs; [
       nerd-fonts.iosevka
       noto-fonts-cjk-sans
+      noto-fonts-cjk-serif
       noto-fonts-color-emoji
     ];
-    fonts.fontconfig.defaultFonts.monospace = [
-      "Iosevka Nerd Font Mono"
-      "Noto Sans Mono CJK JP"
-    ];
+    fonts.fontconfig.defaultFonts = {
+      monospace = [
+        "Iosevka Nerd Font Mono"
+        "Noto Sans Mono CJK JP"
+      ];
+      sansSerif = [ "Noto Sans CJK JP" ];
+      serif = [ "Noto Serif CJK JP" ];
+      emoji = [ "Noto Color Emoji" ];
+    };
 
     # Backlight access for the video/input groups (brightnessctl +
     # brightness-notify). Add your user to those groups!

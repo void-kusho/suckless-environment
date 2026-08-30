@@ -102,6 +102,77 @@ The module installs what `doom doctor` asks for. Language servers and
 compilers are deliberately **not** in the system configuration — use
 `nix shell nixpkgs#rust-analyzer` in the project that needs one.
 
+## Language, timezone and configuring things
+
+The timezone is `America/Sao_Paulo`. **The system is in Japanese**, falling
+back to English wherever a program has no Japanese translation — that is
+`LANGUAGE=ja:en`, gettext's priority list. `LANG` alone would leave
+untranslated programs in the C locale rather than in English.
+
+`LC_TIME` follows, which also matches the bar: slstatus already prints 年月日.
+
+### Switching between Japanese and English
+
+Three different things, and only the last needs a rebuild:
+
+**Typing Japanese** is the input method, not the system language. fcitx5 +
+mozc is configured and toggles with a hotkey — nothing to switch, nothing to
+rebuild. `fcitx5-configtool` is the GUI for its keys and engines.
+
+**One session in English** — no rebuild, no configuration change:
+
+```bash
+LANG=en_US.UTF-8 startx
+```
+
+`ja_JP.UTF-8`, `en_US.UTF-8`, `pt_BR.UTF-8` and `C.UTF-8` are all generated up
+front, so the locale is simply there.
+
+**The whole system in English**, switchable without a rebuild. The module
+builds a second complete system as a *specialisation*; both sit in the store
+at the same time:
+
+```bash
+# pick "english" in the boot menu, or, from a running system:
+sudo /run/current-system/specialisation/english/bin/switch-to-configuration switch
+```
+
+Then log out and back in — a running session keeps the environment it started
+with. To make English the default instead, set `i18n.defaultLocale` in your
+host and rebuild.
+
+**There is no GUI or TUI that changes the system locale on NixOS, and that is
+not an omission**: `/etc/locale.conf` is a symlink into the store, so
+`localectl set-locale` cannot write to it. The specialisation is the
+NixOS-shaped answer.
+
+The interface font is **Noto Sans CJK JP**, which covers Latin and Japanese in
+one family — a Japanese-first desktop needs that everywhere, not only in the
+tag names.
+
+### Configuring the rest
+
+TUI where one exists, GUI only where it does not:
+
+| | Tool | |
+|---|---|---|
+| Wifi | `wifitui` | TUI, the same version as the reference machine |
+| Network (wired, VPN) | `nmtui` | TUI, ships with NetworkManager |
+| Audio | `pulsemixer` | TUI: devices, volume, default sink |
+| Bluetooth | `bluetuith` | TUI: pairing (`blueman-manager` is the GUI) |
+| Input methods | `fcitx5-configtool` | GUI: engines and switch keys |
+| Theme | `lxappearance` | GUI: GTK theme, icons, cursor, UI font |
+| Monitors | `arandr` | GUI: writes an `xrandr` line for `autostart.sh` |
+| CPU profile | `Super+p` | `dmenu-cpupower` |
+
+`lxappearance` writes `~/.config/gtk-3.0/settings.ini`, which overrides the
+system defaults the module ships (Arc-Dark, Papirus-Dark, Adwaita cursors,
+Noto Sans 11). Personal icon and cursor sets in `~/.local/share/icons` keep
+working untouched — that is user state, not system configuration.
+
+Mouse and touchpad behaviour has no TUI worth the name; it is
+`services.libinput` in your host, or `xinput` at runtime.
+
 ## Layout
 
 ```

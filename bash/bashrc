@@ -66,12 +66,14 @@ export VISUAL="$EDITOR"
 # --- Greeting on a new st terminal ---
 # fastfetch first: nixpkgs dropped neofetch as unmaintained, while Guix and
 # Artix still carry it. Trying both keeps this file identical across branches.
+# neofetch on Artix/Guix; neowofetch (the maintained fork, same config file)
+# on NixOS, which dropped neofetch. Trying all three keeps this file identical
+# across branches.
 if [ "$TERM" = "st-256color" ]; then
-    if command -v fastfetch >/dev/null 2>&1; then
-        fastfetch
-    elif command -v neofetch >/dev/null 2>&1; then
-        neofetch
-    fi
+    for _f in neofetch neowofetch fastfetch; do
+        if command -v "$_f" >/dev/null 2>&1; then "$_f"; break; fi
+    done
+    unset _f
 fi
 
 # --- Per-user toolchains (present only if you installed them) ---
