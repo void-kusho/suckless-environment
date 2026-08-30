@@ -21,9 +21,10 @@
 #   * Display manager (Ly/greetd/sddm/...): dwm is the default session.
 #   * No display manager: log into a TTY and run `startx`.
 #
-# Machine-specific bits (monitor layouts, wallpaper) do NOT belong here:
-# the session sources ~/.config/suckless/autostart.sh if present -- see
-# README ("Autostart hook").
+# Machine-specific bits (monitor layouts, pointer warp) do NOT belong here:
+# the session sources ~/.config/suckless/autostart.sh if present. The
+# wallpaper used to be left there too, but nothing ever created that file, so
+# it is an option now -- see programs.suckless-environment.wallpaper.
 {
   config,
   lib,
@@ -43,9 +44,16 @@ let
   #
   # Design notes:
   #   * no manual pipewire/pulse/wireplumber: systemd user services do it
-  #   * monitor layout + wallpaper live in ~/.config/suckless/autostart.sh
+  #   * monitor layout lives in ~/.config/suckless/autostart.sh
   dwm = pkgs.writeShellScriptBin "dwm" ''
-    # Machine-specific setup first (monitors, wallpaper, pointer warp).
+    ${lib.optionalString (cfg.wallpaper != null) ''
+      # Wallpaper. Painted before the autostart hook runs, so a hook that sets
+      # its own overrides this rather than fighting it.
+      ${pkgs.feh}/bin/feh --no-fehbg --bg-fill ${cfg.wallpaper} || true
+    ''}
+
+    # Machine-specific setup (monitor layout, pointer warp, a different
+    # wallpaper). Nothing creates this file; it is yours to write.
     if [ -f "$HOME/.config/suckless/autostart.sh" ]; then
       . "$HOME/.config/suckless/autostart.sh"
     fi
@@ -162,6 +170,20 @@ in
         default = true;
       };
     };
+
+    wallpaper = lib.mkOption {
+      type = lib.types.nullOr lib.types.path;
+      default = ../wallpapers/sushi_original.png;
+      description = ''
+        Image painted onto the root window by feh when the session starts.
+
+        This used to be left to ~/.config/suckless/autostart.sh, which nothing
+        in this repository ever created -- so every fresh install, the test VM
+        included, came up on a bare X root window. Set to null to paint
+        nothing and handle it from the autostart hook yourself.
+      '';
+      example = lib.literalExpression "./my-wallpaper.png";
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -179,7 +201,7 @@ in
         dunst # notifications (battery/brightness alerts)
         lxsession # provides lxpolkit, the polkit authentication agent
         flameshot # Print-key screenshots
-        feh # wallpaper (from autostart hook)
+        feh # paints the wallpaper; also available to the autostart hook
         brightnessctl # brightness engine used by brightness-notify
         xdotool # pointer warp (autostart hook)
         xclip

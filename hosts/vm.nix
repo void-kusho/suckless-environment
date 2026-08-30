@@ -1,15 +1,13 @@
 # Throwaway VM configuration for TESTING the environment.
 #
-# This is a SEPARATE host -- production configurations (hosts/laptop.nix,
-# hosts/laptop.nix, nix/module.nix) are not modified by anything here,
+# A SEPARATE host: nothing here touches hosts/laptop.nix or nix/module.nix,
 # and nothing in the VM leaks back into them.
 #
 # Build & run (any machine with Nix + flakes):
 #
-#   nix build .#vm
-#   ./result/bin/run-nixos-vm
+#   nix run .#vm
 #
-# Log in as `you` with password `test`, then run: startx
+# It boots straight into dwm -- no login, no startx.
 #
 # NOTE for VM runs only:
 #   * no battery/backlight hardware -> slstatus battery segment shows
@@ -46,6 +44,14 @@
   boot.growPartition = true;
   boot.loader.grub.device = "/dev/vda";
 
+  # Both the host and the guest are a dwm whose MODKEY is Super. Without an
+  # input grab every Super+... goes to the HOST window manager before QEMU
+  # sees it, so the guest looks like it has no keybindings at all -- which is
+  # exactly how a working VM appears broken. grab-on-hover hands the keyboard
+  # over as soon as the pointer is on the window; Ctrl+Alt+G toggles it by
+  # hand, and Ctrl+Alt+F releases it.
+  virtualisation.qemu.options = [ "-display gtk,grab-on-hover=on,zoom-to-fit=on" ];
+
   virtualisation = {
     memorySize = 3072; # MiB
     diskSize = 10240; # MB -- root fs only; /nix/store is shared from host
@@ -56,6 +62,16 @@
   # The desktop under test
   # ------------------------------------------------------------------
   programs.suckless-environment.enable = true;
+
+  # Boot straight into the desktop. This host exists to be looked at, and
+  # typing a password into a throwaway VM proves nothing -- the login flow is
+  # what hosts/laptop.nix exercises.
+  services.getty.autologinUser = "you";
+  programs.bash.loginShellInit = ''
+    if [ -z "$DISPLAY" ] && [ "$XDG_VTNR" = 1 ]; then
+      exec startx
+    fi
+  '';
 
   users.users.you = {
     isNormalUser = true;

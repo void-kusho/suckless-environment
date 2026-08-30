@@ -74,6 +74,29 @@ reading.
   and `pkgs.system` → `pkgs.stdenv.hostPlatform.system`. Both hosts now
   evaluate with zero warnings.
 
+## Two things that made a working VM look broken
+
+Both were reported as "the flake did not work", and neither is a flake
+problem:
+
+* **No wallpaper, anywhere.** `nix/module.nix` delegated it to
+  `~/.config/suckless/autostart.sh` — a file nothing in this repository ever
+  created, and which does not exist on the reference machine either (its
+  `dwm-start` hardcodes `feh`). Every fresh install came up on a bare root
+  window. The image is vendored in `wallpapers/` now and painted by
+  `programs.suckless-environment.wallpaper`, before the autostart hook runs
+  so a hook can still override it.
+* **Every keybinding was swallowed by the host.** The guest's MODKEY is Super
+  and so is the host's dwm, and QEMU's GTK display does not grab the keyboard
+  by default: `Super+Return` opened a terminal on the *host*. The VM was
+  fine; nothing in it could be reached. `hosts/vm.nix` now passes
+  `-display gtk,grab-on-hover=on`.
+
+The VM also boots straight into dwm (autologin + `startx` from
+`loginShellInit`): a throwaway host that makes you type a password proves
+nothing, and `/etc/profile` sources `set-environment` before that hook, so
+PATH is already correct when X starts.
+
 ## Decisions
 
 1. **Doom Emacs replaces Helix**, and `$DOOMDIR` points into the store via

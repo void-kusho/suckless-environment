@@ -17,8 +17,16 @@ No installation, no disk, nothing to clean up afterwards:
 nix run .#vm
 ```
 
-That builds `hosts/vm.nix` and boots it in QEMU. Log in as **`you`** with the
-password **`test`**, then run `startx`.
+That builds `hosts/vm.nix` and boots it in QEMU **straight into dwm** — no
+login prompt, no `startx`. The wallpaper, the bar, the keybindings and the
+session daemons are all there; it is the desktop, not a shell.
+
+**Move the pointer onto the window before pressing anything.** The guest's
+MODKEY is Super and so is the host's, so without an input grab every
+`Super+…` is taken by the host window manager and the guest looks like it has
+no keybindings. `hosts/vm.nix` passes `-display gtk,grab-on-hover=on`, which
+grabs as soon as the pointer is over the window; **Ctrl+Alt+G** toggles it by
+hand and **Ctrl+Alt+F** goes full screen.
 
 The VM is disposable and shares the host's `/nix/store`, so it costs a build,
 not a download of a disk image. What it cannot tell you: backlight, WiFi
@@ -26,6 +34,11 @@ firmware, VA-API, and the dual-monitor layout — those need real hardware.
 
 Two knobs, in `hosts/vm.nix`: `virtualisation.memorySize` and
 `virtualisation.graphics` (set it to `false` for a serial-only console).
+
+The wallpaper comes from `programs.suckless-environment.wallpaper`, which
+defaults to `wallpapers/sushi_original.png` in this repository. It used to be
+left to `~/.config/suckless/autostart.sh` — a file nothing ever created, so
+every fresh install came up on a bare root window.
 
 ## Check it
 
