@@ -16,3 +16,7 @@ utils/dmenu-cpupower/config.h
 
 # nix build output symlink
 result
+
+# QEMU writes the VM's disk into the current directory when you `nix run .#vm'
+# from here. It is regenerated on every run and must never be committed.
+*.qcow2
