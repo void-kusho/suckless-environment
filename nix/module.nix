@@ -264,7 +264,6 @@ in
         git
         ripgrep
         fd
-        tmux
         cmake
         libtool
         gnumake
@@ -340,6 +339,21 @@ in
     # Compositor settings: vsync + subtle open/close animations. Deployed
     # system-wide; a user ~/.config/picom/picom.conf overrides it.
     environment.etc."xdg/picom/picom.conf".source = ../picom/picom.conf;
+
+    # tmux, with the reference machine's configuration: Tokyo Night Moon,
+    # C-Space as the prefix, vi copy-mode piping through xclip, Alt+hjkl and
+    # Alt+1..9 for panes and windows. programs.tmux writes /etc/tmux.conf,
+    # which tmux reads before anything in $HOME.
+    #
+    # One papercut: the file's own `bind r' reloads
+    # $HOME/.config/tmux/tmux.conf, which nothing here creates -- on NixOS the
+    # config is read-only and changes come from a rebuild, exactly like
+    # $DOOMDIR. The binding is left as-is so tmux/tmux.conf stays byte
+    # identical to the Arch/Artix build.
+    programs.tmux = {
+      enable = true;
+      extraConfig = builtins.readFile ../tmux/tmux.conf;
+    };
 
     # Thunar through its own NixOS module rather than as a bare package: the
     # module is what registers thunar's D-Bus services and loads the plugins.

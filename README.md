@@ -165,6 +165,12 @@ TUI where one exists, GUI only where it does not:
 | Monitors | `arandr` | GUI: writes an `xrandr` line for `autostart.sh` |
 | CPU profile | `Super+p` | `dmenu-cpupower` |
 
+tmux comes with the reference machine's configuration — Tokyo Night Moon,
+`C-Space` as the prefix, vi copy-mode piping through `xclip`, `Alt+hjkl` for
+panes and `Alt+1..9` for windows. It is deployed as `/etc/tmux.conf`, so its
+own `bind r` (which reloads `$HOME/.config/tmux/tmux.conf`) does nothing here:
+like `$DOOMDIR`, the config is read-only and changes come from a rebuild.
+
 `lxappearance` writes `~/.config/gtk-3.0/settings.ini`, which overrides the
 system defaults the module ships (Arc-Dark, Papirus-Dark, Adwaita cursors,
 Noto Sans 11). Personal icon and cursor sets in `~/.local/share/icons` keep
@@ -185,7 +191,7 @@ hosts/vm.nix        the disposable QEMU host
 dwm/ st/ dmenu/ slstatus/   vendored sources, patches and config.h
 utils/              the C utilities
 doom/               $DOOMDIR: init.el, config.el, packages.el
-bash/ dunst/ fcitx5/ picom/  deployed by the module
+bash/ dunst/ fcitx5/ picom/ tmux/   deployed by the module
 ```
 
 Machine-specific session setup — monitor layout, wallpaper, pointer warp —

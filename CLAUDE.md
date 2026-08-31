@@ -126,6 +126,20 @@ NixOS's stock `en_US.UTF-8` and no GTK theme.
   They are user state and are not packaged here; they keep working if that
   directory comes along.
 
+## Configuration that was in $HOME and nowhere else
+
+Two of these were only found because they were reported missing, which is the
+pattern to watch: anything the reference machine has in `~/.config` and the
+repository does not.
+
+* `tmux/tmux.conf` — a substantial config (Tokyo Night Moon, `C-Space`
+  prefix, vi copy-mode through xclip, Alt navigation) that existed in **no
+  branch**. Now deployed by `programs.tmux`. The `guix` and `artix` branches
+  still lack it.
+* `wallpapers/sushi_original.png` — see above.
+* The neofetch config turned out to be the stock file, with every value at
+  its default; nothing had been lost.
+
 ## Decisions
 
 1. **Doom Emacs replaces Helix**, and `$DOOMDIR` points into the store via
