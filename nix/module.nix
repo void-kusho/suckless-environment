@@ -12,7 +12,7 @@
 #               battery monitor loop, slstatus supervisor loop --
 #               all started by the dwm launcher
 #   * Desktop:  thunar, brave, flameshot, feh, betterlockscreen,
-#               brightnessctl, picom, xdotool, pactl ...
+#               brightnessctl, picom, xdotool, pactl, appimage-run ...
 #   * System:   br/abnt2 keyboard, backlight udev rules,
 #               power-profiles-daemon (for dmenu-cpupower), bluetooth,
 #               PipeWire audio, NetworkManager, CJK/Nerd fonts
@@ -443,6 +443,18 @@ in
       });
     '';
 
+    # AppImages, run the way every other distribution runs them.
+    # `programs.appimage` installs appimage-run, an FHS sandbox carrying the
+    # graphics, audio and font libraries an AppImage expects to find in
+    # /usr/lib and which NixOS does not have. `binfmt` registers that runner
+    # with the kernel, so an executable .AppImage starts from `./Foo.AppImage`
+    # in a shell or from a double click in Thunar -- not only from an explicit
+    # `appimage-run ./Foo.AppImage`.
+    programs.appimage = {
+      enable = true;
+      binfmt = true;
+    };
+
     # Preferred applications for Xfce helpers (exo-open, used by Thunar's
     # native "Open Terminal Here"). Values are desktop-file ids. A user
     # ~/.config/xfce4/helpers.rc overrides this.
@@ -519,6 +531,12 @@ in
     # the tag names.
     fonts.packages = with pkgs; [
       nerd-fonts.iosevka
+      # nerd-icons.el -- the icons in Doom's modeline, dashboard and dired --
+      # looks up the family "Symbols Nerd Font Mono" by that exact name. A
+      # patched Iosevka does not answer to it: nerd-fonts.iosevka installs
+      # "Iosevka Nerd Font", so `doom doctor' reported the symbols font
+      # missing and every icon fell back to tofu.
+      nerd-fonts.symbols-only
       noto-fonts-cjk-sans
       noto-fonts-cjk-serif
       noto-fonts-color-emoji

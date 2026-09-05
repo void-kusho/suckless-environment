@@ -147,7 +147,17 @@ git clone https://github.com/doomemacs/core ~/.config/emacs
 ```
 
 Because `$DOOMDIR` is read-only, edit `doom/` here and rebuild rather than
-editing `~/.config/doom`.
+editing `~/.config/doom`. A rebuild that touches `doom/` gives `$DOOMDIR` a new
+store path, so run `doom sync` afterwards whenever `init.el` or `packages.el`
+changed — `config.el` alone needs nothing but a restart.
+
+`doom install` creates `~/.config/doom` regardless, filled with Doom's own
+example templates. It is dead weight here and worth deleting: `doom-user-dir`
+takes `$DOOMDIR` whenever it is set and never looks at `~/.config/doom`.
+`doom doctor` does flag the two directories, but its warning prints them in a
+fixed order and calls the *second* one ignored, which is backwards for this
+setup — `doom info` prints the directory actually in use, and that is the
+answer to trust.
 
 The module installs what `doom doctor` asks for. Language servers and
 compilers are deliberately **not** in the system configuration — use
@@ -223,6 +233,13 @@ part of the desktop. udisks2 mounts them on demand under
 password prompt. udisks2 treats a fixed internal drive as "system internal",
 whose polkit action would otherwise ask for authentication on every single
 login, unlike a USB stick.
+
+**AppImages run the way they do on any other distribution.**
+`programs.appimage` installs `appimage-run` — an FHS sandbox carrying the
+`/usr/lib` an AppImage expects to find and NixOS does not have — and `binfmt`
+registers it with the kernel. So `chmod +x Foo.AppImage && ./Foo.AppImage`
+works from a shell, and double-clicking one in Thunar works too; there is no
+`appimage-run` prefix to remember.
 
 tmux comes with the reference machine's configuration — Tokyo Night Moon,
 `C-Space` as the prefix, vi copy-mode piping through `xclip`, `Alt+hjkl` for

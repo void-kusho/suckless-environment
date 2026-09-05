@@ -209,6 +209,23 @@ repository does not.
    `environment.variables.DOOMDIR`. That is strictly better than the seed
    wrapper Helix used: no first-run copy, no drift, nothing to re-seed. The
    cost is that `~/.config/doom` is read-only — edit `doom/` and rebuild.
+
+   Two things `doom doctor` turned up once the config was actually running.
+   `doom install` writes `~/.config/doom` from Doom's example templates
+   whether or not `$DOOMDIR` is set, and the doctor then reports "two private
+   configs" with a message that names the paths in a fixed order and calls the
+   *second* ignored — backwards here, because `doom-user-dir` in `lisp/doom.el`
+   short-circuits on `$DOOMDIR` and never consults `~/.config/doom`. `doom
+   info` prints the directory really in use; that is the one to believe. The
+   shadow directory is byte-identical to `static/*.example.el`, so removing it
+   loses nothing — it is user state, deleted by hand, never by a rebuild.
+
+   And `nerd-icons.el` asks for the family **"Symbols Nerd Font Mono"** by
+   name, which a patched Iosevka does not answer to — `nerd-fonts.iosevka`
+   installs "Iosevka Nerd Font". Every icon in the modeline, dashboard and
+   dired was tofu until `nerd-fonts.symbols-only` joined `fonts.packages`.
+   The remaining doctor warnings are decision 4 working as intended: no
+   `rustc`, no `zig`, no `python` on the system.
 2. **The repository describes a desktop and a chipset, never a disk.**
    `hosts/laptop.nix` used to be a complete host carrying the machine's real
    UUIDs, systemd-boot and the user account. It is now `nix/laptop.nix`,
