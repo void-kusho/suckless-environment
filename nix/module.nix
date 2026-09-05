@@ -17,9 +17,10 @@
 #               power-profiles-daemon (for dmenu-cpupower), bluetooth,
 #               PipeWire audio, NetworkManager, CJK/Nerd fonts
 #
-# Login flows supported:
-#   * Display manager (Ly/greetd/sddm/...): dwm is the default session.
-#   * No display manager: log into a TTY and run `startx`.
+# Login: Ly, on tty1, themed Tokyo Night, with dwm as its default session.
+# Set services.displayManager.ly.enable = false for the other flow -- a TTY
+# login and `startx` -- which the module wires up automatically in that case.
+# Another greeter (greetd, SDDM) works too; see displayManagerEnabled below.
 #
 # Machine-specific bits (monitor layouts, pointer warp) do NOT belong here:
 # the session sources ~/.config/suckless/autostart.sh if present. The
@@ -60,14 +61,19 @@ let
 
     start_daemon() {
       command -v "$1" >/dev/null || return 0
-      # pgrep matches process names only -> strip any directory prefix.
-      pgrep -x "''${1##*/}" >/dev/null || "$@" &
+      # Match the full store path rather than the process name. A package
+      # built with makeWrapper runs as `.dunst-wrapped` (and comm is capped
+      # at 15 characters, so flameshot is `.flameshot-wrap`), which
+      # `pgrep -x dunst` can never match -- four of the six daemons below
+      # are wrapped, and the guard silently did nothing for all of them.
+      # The wrapper keeps argv[0], so the full path is still in cmdline.
+      pgrep -f "^$1" >/dev/null || "$@" &
     }
 
     # Session daemons (idempotent across dwm restarts / re-logins).
     ${pkgs.procps}/bin/pkill -x slstatus 2>/dev/null || true
     start_daemon ${pkgs.lxsession}/bin/lxpolkit
-    start_daemon ${pkgs.fcitx5}/bin/fcitx5 -d
+    start_daemon ${config.i18n.inputMethod.package}/bin/fcitx5 -d
     start_daemon ${packages.utils}/bin/dmenu-clipd
     start_daemon ${pkgs.dunst}/bin/dunst
     start_daemon ${pkgs.flameshot}/bin/flameshot
@@ -95,11 +101,16 @@ let
     exec ${packages.dwm}/bin/dwm
   '';
 
-  # True when an explicitly chosen display manager is enabled. Used to
-  # decide whether X should start at boot. NOTE: we deliberately ignore
-  # services.*displayManager.lightdm here -- recent nixpkgs turns it on
-  # as a fallback whenever X11 is enabled, so it cannot signal intent.
-  # Greeters outside this list need `services.xserver.autorun = true;`.
+  # True when a display manager is enabled. Used to decide whether X should
+  # start at boot. Ly is on by default (see below), so this is normally
+  # true; turn Ly off and the module falls back to startx from a TTY.
+  #
+  # lightdm is deliberately absent from the list. The reason recorded here
+  # used to be that recent nixpkgs enables it as a fallback whenever X11 is
+  # on -- on 26.05 that is no longer true (it evaluates to false with and
+  # without Ly), but an implicit fallback still cannot signal intent, so
+  # leaving it out costs nothing. Greeters outside this list need
+  # `services.xserver.autorun = true;`.
   displayManagerEnabled =
     (config.services.displayManager.ly or { enable = false; }).enable
     || (config.services.displayManager.sddm or { enable = false; }).enable
@@ -166,9 +177,11 @@ in
     };
 
     compositor = {
-      enable = lib.mkEnableOption "the picom compositor (vsync + subtle open/close animations), started with the session" // {
-        default = true;
-      };
+      enable =
+        lib.mkEnableOption "the picom compositor (vsync + subtle open/close animations), started with the session"
+        // {
+          default = true;
+        };
     };
 
     wallpaper = lib.mkOption {
@@ -229,9 +242,6 @@ in
         p7zip
         zip
         unzip
-
-        # bluetooth stack (blueman available; pair via cli or blueman-manager)
-        blueman
 
         # Look and feel. dwm draws nothing but window borders, so without a
         # GTK theme every GTK app -- Thunar, Brave's dialogs, lxappearance
@@ -297,8 +307,11 @@ in
         generateScript = lib.mkDefault true;
       };
 
-      # Brazilian ABNT2 layout, pinned declaratively at the X server
-      # level -- no /etc/X11/xorg.conf.d snippets needed.
+      # Brazilian ABNT2, pinned declaratively at the X server level -- no
+      # /etc/X11/xorg.conf.d snippets needed. `abnt2` is both the model and
+      # the default xkb_symbols section of layout br, so naming the variant
+      # is redundant; it is spelled out because this keyboard is the whole
+      # reason the block exists.
       xkb = {
         layout = "br";
         model = "abnt2";
@@ -306,6 +319,39 @@ in
       };
     };
     services.displayManager.defaultSession = lib.mkDefault "none+dwm";
+
+    # Ly is this desktop's display manager. dwm is registered as `none+dwm`
+    # just above and set as the default session, so Ly lists it and starts
+    # it: the .desktop it reads execs NixOS's xsession wrapper, which runs
+    # `dwm` from PATH -- the launcher at the top of this file, daemons and
+    # all.
+    #
+    # mkDefault, so a host that sets this to false gets the other flow
+    # instead: displayManagerEnabled goes false, xserver.autorun follows it
+    # down and the startx pseudo-DM comes back on. hosts/vm.nix does exactly
+    # that.
+    services.displayManager.ly.enable = lib.mkDefault true;
+    services.displayManager.ly.settings = {
+      # Tokyo Night, the palette everything else here uses. Ly takes
+      # 0xAARRGGBB where the top byte is an ATTRIBUTE rather than alpha:
+      # 0x01 is bold, which is why the upstream default error colour is
+      # 0x01FF0000 and the rest are 0x00.
+      bg = "0x001a1b26";
+      fg = "0x00a9b1d6";
+      border_fg = "0x00414868";
+      error_fg = "0x01f7768e";
+
+      # ASCII on purpose. slstatus prints 年月日 and it is tempting to match
+      # it, but Ly draws on the Linux console, whose font has no CJK -- the
+      # greeter would show tofu before X ever starts.
+      clock = "%Y-%m-%d %H:%M";
+    };
+
+    # The virtual terminals. services.xserver.xkb above only reaches X, so
+    # the TTYs stayed on the US map -- and with startx as the default login
+    # flow, the password prompt is a TTY. br-abnt2 is kbd's own name for
+    # this keyboard.
+    console.keyMap = lib.mkDefault "br-abnt2";
 
     # Bash: the user's interactive shell configuration (history, shopts,
     # Tokyo Night colors/prompt, aliases, neofetch greeting). Injected
@@ -325,6 +371,11 @@ in
     # QT_IM_MODULE / XMODIFIERS for every session, so no .xprofile is
     # needed.
     i18n.inputMethod = {
+      # `type` alone is inert: without `enable` the module installs no
+      # fcitx5, no mozc, and exports none of GTK_IM_MODULE / QT_IM_MODULE /
+      # XMODIFIERS -- so nothing could ever type Japanese. (The option pair
+      # replaced the old `i18n.inputMethod.enabled = "fcitx5"` string.)
+      enable = true;
       type = "fcitx5";
       fcitx5.addons = with pkgs; [ fcitx5-mozc ];
     };
@@ -368,6 +419,29 @@ in
     };
     services.gvfs.enable = true; # trash, mounting, network shares
     services.tumbler.enable = true; # thumbnails
+
+    # Disks. udisks2 is what actually mounts them; gvfs and thunar-volman
+    # are the front ends. No filesystem is declared anywhere in this
+    # repository on purpose -- partitions belong to the installation, not to
+    # a desktop module.
+    services.udisks2.enable = true;
+
+    # ...and this is what makes clicking a disk in Thunar work. udisks2
+    # treats anything not hot-pluggable as "system internal", and that
+    # polkit action defaults to auth_admin_keep -- so a fixed second drive
+    # asks for a password on every login, where a USB stick does not. Let
+    # wheel mount and unmount without the prompt; the mount itself still
+    # goes through udisks2 (nosuid, nodev, /run/media/$USER/<label>).
+    security.polkit.extraConfig = ''
+      polkit.addRule(function(action, subject) {
+        if ((action.id == "org.freedesktop.udisks2.filesystem-mount-system" ||
+             action.id == "org.freedesktop.udisks2.filesystem-mount" ||
+             action.id == "org.freedesktop.udisks2.filesystem-unmount-others") &&
+            subject.isInGroup("wheel") && subject.local && subject.active) {
+          return polkit.Result.YES;
+        }
+      });
+    '';
 
     # Preferred applications for Xfce helpers (exo-open, used by Thunar's
     # native "Open Terminal Here"). Values are desktop-file ids. A user
@@ -466,8 +540,14 @@ in
     # CPU profile switching for dmenu-cpupower (Super+p).
     services.power-profiles-daemon.enable = lib.mkDefault true;
 
-    # Bluetooth stack (pairing tools: bluetoothctl, blueman-manager).
+    # Bluetooth stack (pairing tools: bluetoothctl, bluetuith,
+    # blueman-manager). services.blueman is what registers
+    # blueman-mechanism, the privileged half; blueman as a bare package --
+    # which is what this module used to install -- has no way to pair or
+    # trust a device. The service brings its own copy, so blueman is no
+    # longer in the package list above.
     hardware.bluetooth.enable = lib.mkDefault true;
+    services.blueman.enable = lib.mkDefault true;
 
     # Audio: pamixer/pactl talk PulseAudio; PipeWire implements it.
     security.rtkit.enable = true;

@@ -17,16 +17,26 @@ Two standing constraints:
 
 ## The reference machine
 
-Read live, 2026-08-29. Every parity claim is checked against **this**.
+Read live, 2026-09-05. Every parity claim is checked against **this**.
 
 ```
-artix-btw — Intel i5-1135G7 (TigerLake), Iris Xe, 16 GiB
-nvme0n1  p1 vfat ESP  D5A8-D954                            -> /boot/efi
-         p2 swap SWAP 4697d7c2-e298-4e46-b97d-197fd4a96039
-         p3 ext4 ROOT 6852d602-61ce-43fb-9c28-91ecf89adccc -> /
-BAT1 · intel_backlight · Intel WiFi · keyboard br/abnt2
+Intel i5-1135G7 (TigerLake-LP), 8 threads, 16 GiB, NVMe
+Iris Xe Graphics                          [8086:9a49]
+Intel Wi-Fi 6 AX201                       [8086:a0f0]
+Intel Bluetooth 9460/9560 Jefferson Peak  [8087:0aaa]
+Intel HD Audio, 500 series                [8086:a0c8]
+BAT1 · intel_backlight · keyboard br/abnt2
 eDP-1 1920x1080@60 at 0x0 ; DP-1 1920x1080@180 at 1920x0 (primary)
 ```
+
+The partition table used to be recorded here too. It is not any more, and
+neither is it in the flake: the machine is being reinstalled, every UUID
+changes with the format, and a stale UUID in a repository is a trap that
+looks like documentation. Partitions belong to the `hardware-configuration.nix`
+that `nixos-generate-config` writes on the installed system.
+
+The three PCI IDs above are the reason `hardware.enableRedistributableFirmware`
+is not optional here -- see below.
 
 **Parity is byte-identical**: `dwm/config.h`, `st/config.h`,
 `dmenu/config.h`, `slstatus/config.h`, `dunst/dunstrc`, `fcitx5/profile` and
@@ -73,6 +83,59 @@ reading.
   `xfce.thunar-{archive-plugin,volman}` and `xfce.exo` moved to top level,
   and `pkgs.system` → `pkgs.stdenv.hostPlatform.system`. Both hosts now
   evaluate with zero warnings.
+
+## What booting it found that reading it could not
+
+`nix flake check` was green through every one of the following. All four
+came out of `pkgs.testers.runNixOSTest`: a headless VM that logs in on a
+TTY, runs `startx`, and then asserts on the live session. Building a
+configuration proves it evaluates; only booting proves it runs.
+
+* **The store shipped binaries compiled on Artix.** `src = ../dwm` copies the
+  *working tree*, and every vendored Makefile builds in place, so a `dwm`
+  left over from a `make` on this machine was copied into the store beside
+  its sources. GNU make then found the target newer than its prerequisites,
+  skipped the compile, and `make install` installed the foreign binary. It
+  asks for `/lib64/ld-linux-x86-64.so.2`; NixOS answers with a stub that
+  refuses. The session died at `exec dwm` with *"Could not start dynamically
+  linked executable"* — dwm, slstatus and battery-notify all of them, and
+  `utils/brightness-notify/brightness-notify` was committed to git, so a
+  clean clone was poisoned too.
+
+  Three layers now: `preBuild = "make clean"` in `nix/lib.nix` (every
+  vendored Makefile has a `clean`, and none of them touches `config.h`), a
+  `postFixup` that fails the build if any installed binary asks for an
+  interpreter outside the store, and `.gitignore` entries for all eleven
+  build products. The committed binary is gone.
+* **fcitx5 and mozc had never worked.** `i18n.inputMethod.type` was set
+  without `enable`, and the pair replaced the old `enabled = "fcitx5"`
+  string: `type` alone installs nothing and exports none of
+  `GTK_IM_MODULE` / `QT_IM_MODULE` / `XMODIFIERS`. There was no `fcitx5`
+  binary on the system at all, and the launcher called `${pkgs.fcitx5}` —
+  the bare package, without mozc — rather than
+  `config.i18n.inputMethod.package`. `mozc_server` runs in the session now.
+* **The launcher's idempotency guard was a no-op for most of it.**
+  `pgrep -x "${1##*/}"` matches a process *name*, and a package built with
+  makeWrapper runs as `.dunst-wrapped` — with `comm` capped at 15 characters,
+  flameshot is `.flameshot-wrap`. Four of the six daemons are wrapped, so the
+  guard never matched any of them. It matches the full store path now; the
+  wrapper keeps `argv[0]`, so the path is still in the cmdline. This was
+  only visible in a `ps` taken inside a running session.
+* **No firmware at all.** A hand-written hardware block does not import
+  `installer/scan/not-detected.nix`, which is where `nixos-generate-config`
+  turns `hardware.enableRedistributableFirmware` on. The `firmware`
+  derivation in the closure measured **5.2 KiB** — an empty merge directory.
+  On this machine that is no WiFi (AX201 iwlwifi), no bluetooth (Jefferson
+  Peak `ibt-*`) and no Iris Xe GuC/HuC. It is 808.6 MiB now, with the
+  `iwlwifi-QuZ-a0-*.ucode` this adapter loads.
+
+Smaller, from the same session: the TTYs had no keymap and stayed on US
+while X had br/abnt2 — and with `startx` as the login flow, the password
+prompt is a TTY (`console.keyMap = "br-abnt2"`). `blueman` was a bare
+package with no `services.blueman`, so it could not pair or trust anything.
+udisks2 classifies a fixed second drive as *system internal*, whose polkit
+action is `auth_admin_keep`, so mounting the HD from Thunar asked for a
+password on every login; a polkit rule now lets `wheel` do it silently.
 
 ## Two things that made a working VM look broken
 
@@ -146,23 +209,58 @@ repository does not.
    `environment.variables.DOOMDIR`. That is strictly better than the seed
    wrapper Helix used: no first-run copy, no drift, nothing to re-seed. The
    cost is that `~/.config/doom` is read-only — edit `doom/` and rebuild.
-2. **`hosts/laptop.nix` is a real host, not a template.** A template that
-   cannot be evaluated is a template nobody checks; that is precisely how the
-   Flatpak assertion survived.
-3. **`hosts/minimal.nix` and `default.nix` are gone.** With laptop.nix real,
-   minimal.nix was a second template of the same thing, and `default.nix`
+2. **The repository describes a desktop and a chipset, never a disk.**
+   `hosts/laptop.nix` used to be a complete host carrying the machine's real
+   UUIDs, systemd-boot and the user account. It is now `nix/laptop.nix`,
+   exported as `nixosModules.laptop`: Intel platform facts and the desktop
+   toggle, with no `fileSystems`, no `swapDevices`, no `boot.loader`, no
+   `users.users` and no `stateVersion`. Those are the installation's, and the
+   installation is done by hand.
+
+   This reverses the previous decision, whose reasoning was sound: a template
+   that cannot be evaluated is a template nobody checks, and that is how the
+   Flatpak assertion survived. The concern is met a different way now --
+   `checks.laptop-module` builds the module against a throwaway root declared
+   inside the check, so the fake disk lives in the gate and never in the
+   module. `nix flake check` still fails if the module stops evaluating.
+3. **`hosts/minimal.nix` and `default.nix` are gone.** Once laptop.nix
+   covered the machine, minimal.nix was a second template of the same thing, and `default.nix`
    duplicated `nixosModules.default` for non-flake users. One interface.
 4. **Toolchains stay out of the system**: `nix shell nixpkgs#rust-analyzer`.
+5. **Ly is the display manager, and the module turns it on.** It was only
+   ever *detected* before -- `displayManagerEnabled` knew how to react to it,
+   but nothing enabled it, and the one line that would have was commented out
+   in `hosts/laptop.nix`. It is `mkDefault true` in `nix/module.nix` now,
+   themed with the Tokyo Night palette. Ly takes `0xAARRGGBB` where the top
+   byte is an *attribute*, not alpha: `0x01` is bold, which is what the
+   upstream `error_fg = 0x01FF0000` means.
+
+   Its clock is deliberately ASCII. Ly draws on the Linux console, whose font
+   has no CJK, so matching slstatus' `年月日` would render as tofu. For the
+   same reason the greeter is the one place where the **console** keymap
+   matters rather than X's -- see `console.keyMap` above.
+
+   `hosts/vm.nix` sets it to `false`: the test VM's whole point is booting
+   straight into dwm, and the module hands `services.xserver.autorun` and the
+   startx pseudo-DM back when it goes off.
 
 ## Using the flake as the interface
 
 `flake.nix` is the whole API, and every one of these is meant to be used:
 
 * `nix run .#vm` — boot the test host in QEMU, no disk, no result symlink.
-* `nix flake check` — builds both hosts and all five tools. The gate.
-* `nix fmt` — `nixfmt-tree`.
-* `nixosModules.default`, `overlays.default` — for other machines.
-* `sudo nixos-rebuild switch --flake .#laptop`.
+  `hosts/vm.nix` is the only complete system left here; a VM owns its virtual
+  disk, so declaring one costs nothing and strands nobody.
+* `nix flake check` — builds all five tools, the VM, and `nixosModules.laptop`
+  against a throwaway root. The gate.
+* `nix fmt` — `nixfmt-tree`. It walks far more than this repository and exits
+  non-zero on unrelated trees; `nixfmt` on the six `.nix` files is the honest
+  check.
+* `nixosModules.default` — the desktop alone, for another machine.
+* `nixosModules.laptop` — the desktop plus this chipset. Combine it with the
+  generated `hardware-configuration.nix` in `/etc/nixos` and rebuild with
+  `sudo nixos-rebuild switch --flake /etc/nixos#laptop`. README has the
+  twelve-line `flake.nix` that joins them.
 
 ## Conventions
 

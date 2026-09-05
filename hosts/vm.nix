@@ -64,8 +64,13 @@
   programs.suckless-environment.enable = true;
 
   # Boot straight into the desktop. This host exists to be looked at, and
-  # typing a password into a throwaway VM proves nothing -- the login flow is
-  # what hosts/laptop.nix exercises.
+  # typing a password into a throwaway VM proves nothing.
+  #
+  # nix/module.nix turns Ly on by default; switching it off here is what
+  # brings back the autologin + startx path, because the module's
+  # displayManagerEnabled follows it and hands services.xserver.autorun and
+  # the startx pseudo-DM back over.
+  services.displayManager.ly.enable = false;
   services.getty.autologinUser = "you";
   programs.bash.loginShellInit = ''
     if [ -z "$DISPLAY" ] && [ "$XDG_VTNR" = 1 ]; then

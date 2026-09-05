@@ -47,38 +47,89 @@ nix flake check     # both hosts evaluate and build, all five tools compile
 nix fmt             # format the Nix
 ```
 
-`nix flake check` is the gate: it builds `hosts/laptop.nix`,
-`hosts/vm.nix` and every package. Nothing that fails it should reach
-`nixos-rebuild switch`.
+`nix flake check` is the gate: it builds every package, `hosts/vm.nix`, and
+`nixosModules.laptop` against a throwaway root. Nothing that fails it should
+reach `nixos-rebuild switch`.
 
-## Install it
+## Use it
+
+**This repository describes a desktop and a chipset. It never describes a
+disk.** There is no partition, no filesystem, no bootloader, no user and no
+`stateVersion` anywhere in it — install NixOS however you like, and keep the
+`hardware-configuration.nix` that `nixos-generate-config` writes for you in
+`/etc/nixos`, where it belongs. Two modules are offered instead:
+
+| | |
+|---|---|
+| `nixosModules.default` | the desktop, behind `programs.suckless-environment.enable` |
+| `nixosModules.laptop` | that, plus the Intel TigerLake hardware this was written on |
 
 ### On this machine
 
-`hosts/laptop.nix` is a complete, evaluable host — the real UUIDs, the EFI
-loader, the Intel platform bits:
+`nixosModules.laptop` carries the hardware facts — redistributable firmware
+(the AX201 WiFi, the Jefferson Peak bluetooth and the Iris Xe GuC all load
+microcode at runtime and are dead without it), Intel microcode, `modesetting`,
+the iHD VA-API driver, thermald, fstrim and fwupd. Combine it with your
+generated hardware block:
 
-```bash
-sudo nixos-rebuild switch --flake .#laptop
+```nix
+# /etc/nixos/flake.nix
+{
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
+  inputs.suckless-env.url = "github:void-kusho/suckless-environment/nixos";
+  # Without this, suckless-env drags in its own pinned nixpkgs and you
+  # evaluate (and download) two of them.
+  inputs.suckless-env.inputs.nixpkgs.follows = "nixpkgs";
+
+  outputs = { nixpkgs, suckless-env, ... }: {
+    nixosConfigurations.laptop = nixpkgs.lib.nixosSystem {
+      system = "x86_64-linux";
+      modules = [
+        ./hardware-configuration.nix   # generated; disks live here, only here
+        suckless-env.nixosModules.laptop
+        {
+          networking.hostName = "kusho";   # letters, digits, - and _ only
+
+          users.users.void = {
+            isNormalUser = true;
+            extraGroups = [ "wheel" "networkmanager" "video" "input" ];
+            # Ly asks for a password and a user without one cannot log in at
+            # all. Set it here for the first boot and change it with
+            # `passwd`, or drop this line and run `passwd void` as root from
+            # a TTY before you ever reach the greeter.
+            initialPassword = "change-me";
+          };
+
+          system.stateVersion = "26.05";   # the release you installed
+        }
+      ];
+    };
+  };
+}
 ```
 
-Run `nixos-generate-config` on the real install first and reconcile its
-hardware block with the one in `hosts/laptop.nix`: the kernel-module list
-there is the usual Intel/NVMe set, not a reading of your machine.
+```bash
+# The FIRST rebuild only. A freshly installed NixOS has no flake support
+# yet -- nixosModules.laptop turns it on, but that option does not exist
+# until the switch it is part of has already happened.
+sudo nixos-rebuild switch --flake /etc/nixos#laptop \
+  --option extra-experimental-features "nix-command flakes"
+
+# Every rebuild after that:
+sudo nixos-rebuild switch --flake /etc/nixos#laptop
+```
+
+`video` and `input` are what the backlight udev rules grant brightness
+writes to; `wheel` is what the disk-mounting polkit rule keys on.
 
 ### On another machine
 
-Import the module from your own configuration:
+Take the desktop without the Intel bits:
 
 ```nix
-{
-  inputs.suckless-env.url = "github:void-kusho/suckless-environment/nixos";
-
-  # in your nixosSystem modules:
-  imports = [ inputs.suckless-env.nixosModules.default ];
-  programs.suckless-environment.enable = true;
-  programs.suckless-environment.extraPackages = with pkgs; [ discord steam ];
-}
+imports = [ inputs.suckless-env.nixosModules.default ];
+programs.suckless-environment.enable = true;
+programs.suckless-environment.extraPackages = with pkgs; [ discord steam ];
 ```
 
 ### Doom Emacs
@@ -164,6 +215,14 @@ TUI where one exists, GUI only where it does not:
 | Theme | `lxappearance` | GUI: GTK theme, icons, cursor, UI font |
 | Monitors | `arandr` | GUI: writes an `xrandr` line for `autostart.sh` |
 | CPU profile | `Super+p` | `dmenu-cpupower` |
+| Disks | Thunar | click it in the sidebar; udisks2 mounts it |
+
+Secondary drives are **not** declared anywhere here — a second disk is not
+part of the desktop. udisks2 mounts them on demand under
+`/run/media/$USER/<label>`, and a polkit rule lets `wheel` do it without a
+password prompt. udisks2 treats a fixed internal drive as "system internal",
+whose polkit action would otherwise ask for authentication on every single
+login, unlike a USB stick.
 
 tmux comes with the reference machine's configuration — Tokyo Night Moon,
 `C-Space` as the prefix, vi copy-mode piping through `xclip`, `Alt+hjkl` for
@@ -182,12 +241,12 @@ Mouse and touchpad behaviour has no TUI worth the name; it is
 ## Layout
 
 ```
-flake.nix           the interface: module, packages, both hosts, checks, the VM
+flake.nix           the interface: modules, packages, checks, the VM
 nix/module.nix      the whole desktop behind programs.suckless-environment
+nix/laptop.nix      nixosModules.laptop — Intel TigerLake facts, no disks
 nix/packages.nix    one derivation per vendored tool
 nix/lib.nix         the shared builder they all use
-hosts/laptop.nix    the real machine — hardware facts only
-hosts/vm.nix        the disposable QEMU host
+hosts/vm.nix        the disposable QEMU host — the only complete system here
 dwm/ st/ dmenu/ slstatus/   vendored sources, patches and config.h
 utils/              the C utilities
 doom/               $DOOMDIR: init.el, config.el, packages.el
@@ -198,12 +257,30 @@ Machine-specific session setup — monitor layout, wallpaper, pointer warp —
 goes in `~/.config/suckless/autostart.sh`, which the dwm launcher sources.
 It is deliberately not in the flake: it is state, not configuration.
 
-## Both login flows
+## Login
 
-* **A display manager** (Ly, SDDM, greetd, …) sees dwm as `none+dwm`, which
-  the module sets as the default session.
-* **No display manager**: the module turns on NixOS's `startx` pseudo-DM, so
-  you log into a TTY and run `startx`. This is the default.
+**Ly is the display manager**, on tty1, coloured with the same Tokyo Night
+palette as the rest of the desktop. dwm is registered as `none+dwm` and set
+as the default session, so Ly lists it and starts it — the `.desktop` it
+reads execs NixOS's xsession wrapper, which runs the launcher that brings up
+the session daemons.
+
+Ly is a TUI on the Linux console, which has two consequences worth knowing:
+the password is typed on the **console** keymap (`br-abnt2`, which the module
+sets) rather than on X's layout, and the clock is ASCII — the console font
+has no CJK, so the `年月日` the status bar prints would be tofu here.
+
+For a TTY login and `startx` instead, turn it off and the module wires up the
+other flow on its own — `services.xserver.autorun` follows it down and the
+`startx` pseudo-DM comes back:
+
+```nix
+services.displayManager.ly.enable = false;
+```
+
+`hosts/vm.nix` does exactly that, which is how the test VM still boots
+straight into dwm with no password. Another greeter (greetd, SDDM) also
+works; the module detects those too.
 
 ## Keybindings
 
