@@ -1,10 +1,24 @@
-# build artifacts
+# Build artifacts. The vendored Makefiles build in place, so every one of
+# these lands next to its sources -- and `src = ../dwm` in nix/packages.nix
+# would copy it into the store, where make skips the compile and installs a
+# binary built for another distribution. nix/lib.nix runs `make clean` and
+# checks the interpreter to catch that; these entries stop it at the door.
 *.o
 *.orig
 *.rej
 result
 result-
+dwm/dwm
+dmenu/dmenu
+dmenu/stest
+st/st
+slstatus/slstatus
+utils/battery-notify/battery-notify
 utils/brightness-notify/brightness-notify
+utils/dmenu-clip/dmenu-clip
+utils/dmenu-clipd/dmenu-clipd
+utils/dmenu-cpupower/dmenu-cpupower
+utils/dmenu-session/dmenu-session
 utils/*/test-*
 tests/test-*
 
