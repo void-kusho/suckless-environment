@@ -32,7 +32,11 @@ export LS_COLORS='di=38;2;122;162;247:ln=38;2;125;207;255:ex=38;2;158;206;106:*.
 # --- Editor: Doom Emacs ---
 # emacsclient reuses a running daemon when there is one and falls back to a
 # fresh `emacs' otherwise, so this works with or without `emacs --daemon'.
+# `et' is the same idea in the terminal: -t asks the daemon for a TTY frame,
+# and the fallback keeps -nw so it can never open a window. Doom's :os tty
+# module is what makes that frame worth using.
 alias e='emacsclient -a emacs'
+alias et='emacsclient -t -a "emacs -nw"'
 alias doom="$HOME/.config/emacs/bin/doom"
 
 # --- Safety ---
