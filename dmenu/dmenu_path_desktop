@@ -1,18 +1,26 @@
 #!/bin/sh
 
-cachedir="${XDG_CACHE_HOME:-"$HOME/.cache"}"
-cache="$cachedir/dmenu_run_desktop"
-
-[ ! -e "$cachedir" ] && mkdir -p "$cachedir"
+# List the .desktop entry names found in every XDG_DATA_DIRS component.
+#
+# Two bugs came from the desktoponly patch, and both are invisible on a
+# distribution whose XDG_DATA_DIRS ends in /usr/share -- which is why this
+# has always worked on Arch/Artix:
+#
+#   * the expansion was quoted, so IFS=: never split it. The loop ran once
+#     with the whole colon-joined string as $dir and appended /applications
+#     to the END of it, so only the LAST component was ever scanned. On
+#     NixOS that is /run/current-system/sw/share, and nothing installed into
+#     the per-user profile (everything home-manager deploys) could appear.
+#   * the result was cached and the cache invalidated by testing whether any
+#     $PATH directory was newer than it. Every PATH entry here resolves into
+#     the store, stamped 1970-01-01, so nothing is ever newer and the cache
+#     never expired on its own. A full scan is ~4ms; there is nothing worth
+#     caching.
 
 dirs=""
 IFS=:
-for dir in "${XDG_DATA_DIRS:-"/usr/local/share:/usr/share"}"; do
-	dirs="${dirs}:${dir}/applications"
-done;
+for dir in ${XDG_DATA_DIRS:-/usr/local/share:/usr/share}; do
+	dirs="${dirs}${dirs:+:}${dir}/applications"
+done
 
-if stest -dqr -n "$cache" $PATH; then
-	stest -fl $dirs | grep -v 'mimeinfo.cache' | sed 's/\.[^./]*$//' | sort -u | tee "$cache"
-else
-	cat "$cache"
-fi
+stest -fl $dirs | grep -v 'mimeinfo.cache' | sed 's/\.[^./]*$//' | sort -u
