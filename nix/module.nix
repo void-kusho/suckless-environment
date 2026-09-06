@@ -359,6 +359,21 @@ in
     programs.bash = {
       interactiveShellInit = builtins.readFile ../bash/bashrc;
       completion.enable = true;
+
+      # NixOS's stock prompt, silenced. Both of these land in /etc/bashrc,
+      # and promptInit is emitted AFTER interactiveShellInit -- so the stock
+      # block reassigned PS1 over the Tokyo Night prompt that bash/bashrc
+      # sets, unconditionally, on every terminal where TERM is not "dumb".
+      # The result was NixOS's green [user@host:dir]$ on a desktop where
+      # everything else is Tokyo Night, and nothing in bash/bashrc could
+      # have fixed it: the overwrite happens later in the same file.
+      #
+      # Emptying it is also what keeps parity: bash/bashrc is byte-identical
+      # to origin/artix, and no such default exists there. The one thing
+      # given up with it is the xterm title escape, which that prompt sets
+      # and this one never did -- on Artix too, so st has always been
+      # titled "st" rather than the working directory.
+      promptInit = "";
     };
     # NixOS defaults EDITOR to nano at the same priority. emacsclient reuses a
     # running daemon and falls back to a fresh emacs when there is none.
