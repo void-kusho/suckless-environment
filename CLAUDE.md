@@ -206,6 +206,44 @@ itself, which spawns `dmenu-session` reliably, and the `-m` argument shared
 by the four dmenu commands — `spawn()` rewrites `dmenumon` for all of them,
 so the menus do follow the focused monitor.
 
+## Running software this repository did not build
+
+Three of the owner's own programs would not start — a Tauri app built on the
+old Artix install, an UPBGE build, and a Flutter AppImage. None of it was a
+loader problem. `programs.nix-ld` was already on and already answering
+`/lib64/ld-linux-x86-64.so.2`, which is why `~/.opencode/bin/opencode` — a
+foreign ELF that needs nothing past libc — ran fine all along.
+
+nix-ld hands a program only the libraries it is *told* to, and the stock list
+is libc, libstdc++, zlib, openssl, curl and systemd. So all three stopped one
+step past the loader, each naming the first thing it wanted:
+
+| program        | died on                    | really needed                     |
+| -------------- | -------------------------- | --------------------------------- |
+| the Tauri app  | `libgdk-3.so.0`            | gtk3, webkitgtk_4_1, libsoup_3     |
+| UPBGE          | `libX11.so.6`, `libSM.so.6`| the X11 set, GL, pulse, wayland   |
+| the AppImage   | `libepoxy.so.0`            | libepoxy                          |
+
+The AppImage is a *different mechanism with the same shape*, and that is the
+part worth remembering: `appimage-run` runs inside its own FHS sandbox whose
+library set has nothing to do with nix-ld's. The fix for it is
+`programs.appimage.package`, not `programs.nix-ld.libraries` — putting
+libepoxy in the latter would have changed nothing.
+
+Both lists live in `nix/module.nix` now, and together they cost **238 KiB**
+of closure, measured against the same system without them. The desktop is
+already GTK and X11 — Thunar, Brave, dunst and lxappearance drag in the same
+gtk3, cairo, pango, fontconfig, Xlib, and webkitgtk was in the store too — so
+the libraries were paid for either way. Only nix-ld itself is new.
+
+Listing a *direct* dependency is enough. Anything reached through nix-ld
+carries its own RUNPATH into the store, so the transitive half resolves
+without being named — which is why a list this short covers a 300 MB Blender.
+
+This does not reverse decision 4. Nothing here compiles anything; it lets a
+binary that already exists run. `nix shell nixpkgs#gcc` is still how you
+build one.
+
 ## Timezone, language and theme
 
 None of the three were configured at all, so the system ran in UTC, with

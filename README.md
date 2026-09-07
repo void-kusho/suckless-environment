@@ -239,7 +239,23 @@ login, unlike a USB stick.
 `/usr/lib` an AppImage expects to find and NixOS does not have — and `binfmt`
 registers it with the kernel. So `chmod +x Foo.AppImage && ./Foo.AppImage`
 works from a shell, and double-clicking one in Thunar works too; there is no
-`appimage-run` prefix to remember.
+`appimage-run` prefix to remember. Its stock library set is extended with
+`libepoxy`, which a GTK or Flutter AppImage needs before it draws anything.
+
+**So do plain binaries you compiled somewhere else.** `programs.nix-ld`
+answers the `/lib64/ld-linux-x86-64.so.2` that a foreign ELF asks for and
+NixOS does not otherwise have, and `programs.nix-ld.libraries` hands it the
+GTK, webkit, X11, OpenGL, audio, font and terminal libraries such a program
+expects — so a GTK or Tauri app built on another distribution, or on this
+machine before it was reinstalled, starts by double-clicking it. Nothing is
+patched and nothing is copied. A program that needs a library outside that
+list says so plainly:
+
+```
+error while loading shared libraries: libfoo.so.1: cannot open shared object file
+```
+
+Add the package that provides it to `programs.nix-ld.libraries` and rebuild.
 
 tmux comes with the reference machine's configuration — Tokyo Night Moon,
 `C-Space` as the prefix, vi copy-mode piping through `xclip`, `Alt+hjkl` for

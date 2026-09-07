@@ -491,9 +491,110 @@ in
     # with the kernel, so an executable .AppImage starts from `./Foo.AppImage`
     # in a shell or from a double click in Thunar -- not only from an explicit
     # `appimage-run ./Foo.AppImage`.
+    #
+    # That sandbox's stock library set is not quite enough: a GTK/Flutter
+    # AppImage stops at `libepoxy.so.0: cannot open shared object file'
+    # before it draws anything.
     programs.appimage = {
       enable = true;
       binfmt = true;
+      package = pkgs.appimage-run.override {
+        extraPkgs = p: [ p.libepoxy ];
+      };
+    };
+
+    # The same problem one layer down, for a plain ELF binary that was not
+    # built by Nix -- something compiled on another distribution, or on this
+    # machine before it was reinstalled.
+    #
+    # nix-ld answers /lib64/ld-linux-x86-64.so.2, which NixOS otherwise does
+    # not have, so such a binary starts at all; but it hands the program only
+    # the libraries listed here, and the stock list is libc, libstdc++, zlib,
+    # openssl, curl and systemd. Anything with a window or a terminal UI dies
+    # one step later with `error while loading shared libraries', naming
+    # whichever of these it wanted first -- libgdk-3 for a Tauri app, libX11
+    # for Blender, and so on.
+    #
+    # The list is long and costs almost nothing: every one of these is
+    # already in this system's closure, because the desktop itself is GTK and
+    # X11 and drags in the same GTK, cairo, pango, fontconfig, Xlib -- and
+    # webkitgtk, which is what a Tauri binary links against. Measured against
+    # the same system without it, this whole block plus the libepoxy override
+    # above adds **238 KiB**: nix-ld itself and a symlink farm.
+    #
+    # Listing a direct dependency is enough. Each library found here carries
+    # its own RUNPATH into the store, so its transitive dependencies resolve
+    # without appearing in this list.
+    programs.nix-ld = {
+      enable = lib.mkDefault true;
+      libraries = with pkgs; [
+        # GTK and webkit: Tauri, Electron and anything GTK-based
+        glib
+        gtk3
+        gdk-pixbuf
+        cairo
+        pango
+        atk
+        at-spi2-atk
+        at-spi2-core
+        harfbuzz
+        webkitgtk_4_1
+        libsoup_3
+        dbus
+        libepoxy
+
+        # X11, and the extensions toolkits actually ask for
+        libx11
+        libxext
+        libxrender
+        libxi
+        libxfixes
+        libxcursor
+        libxrandr
+        libxcomposite
+        libxdamage
+        libxxf86vm
+        libxcb
+        libxkbcommon
+        libxtst
+        libxinerama
+        libxscrnsaver
+        libsm
+        libice
+
+        # OpenGL/Vulkan, and the Wayland stubs a binary may link even when
+        # it ends up running under X
+        libglvnd
+        mesa
+        libgbm
+        libdrm
+        vulkan-loader
+        wayland
+        libdecor
+
+        # audio
+        alsa-lib
+        libpulseaudio
+
+        # fonts and images
+        fontconfig
+        freetype
+        libpng
+        libjpeg
+
+        # terminal UIs and the usual suspects
+        ncurses
+        readline
+        sqlite
+        nss
+        nspr
+        expat
+        libxml2
+        zlib
+        openssl
+        cups
+        libnotify
+      ];
     };
 
     # Preferred applications for exo-open, which is how Thunar opens a
