@@ -47,11 +47,38 @@ nix flake check     # all five tools compile, and everything here evaluates
 nix fmt             # format the Nix
 ```
 
-`nix flake check` is the gate. It builds every package, the QEMU host, and —
-each against a throwaway root, so the fake disk lives in the check and never
-in the thing being checked — `nixosModules.laptop` and the installation
-template from [step 3](#3-write-the-configuration). Nothing that fails it
-should reach `nixos-rebuild switch`.
+`nix flake check` is the gate. It builds every package, the QEMU host, the
+whole `nixos-btw` machine below, and — each against a throwaway root, so the
+fake disk lives in the check and never in the thing being checked —
+`nixosModules.laptop` and the installation template from
+[step 3](#3-write-the-configuration). Nothing that fails it should reach
+`nixos-rebuild switch`.
+
+## Rebuild the reference machine
+
+The laptop this was written on is in here, whole:
+
+```bash
+sudo nixos-rebuild switch --flake /path/to/this/repo#nixos-btw
+```
+
+`hosts/nixos-btw/` is its disks, bootloader, user, English-with-a-Japanese-
+boot-entry locale, monitor layout and home-manager applications. Nothing
+about it lives in `/etc/nixos` any more, and nothing about it leaks into
+`nixosModules.laptop`, which is what everyone else imports and which still
+has no disk in it.
+
+Its `hardware-configuration.nix` is a snapshot, true until the disks are
+reformatted. After a reinstall:
+
+```bash
+nixos-generate-config --show-hardware-config \
+  | nixfmt > hosts/nixos-btw/hardware-configuration.nix
+```
+
+**Installing on a different machine? Do not copy this host** — its UUIDs are
+not yours. Use the walkthrough below, which writes an `/etc/nixos` with no
+disks in it.
 
 ## Install it, from a blank disk
 
@@ -421,21 +448,30 @@ Mouse and touchpad behaviour has no TUI worth the name; it is
 ## Layout
 
 ```
-flake.nix           the interface: modules, packages, checks, the VM
+flake.nix           the interface: hosts, modules, packages, checks, template
 nix/module.nix      the whole desktop behind programs.suckless-environment
 nix/laptop.nix      nixosModules.laptop — Intel TigerLake facts, no disks
 nix/packages.nix    one derivation per vendored tool
 nix/lib.nix         the shared builder they all use
-hosts/vm.nix        the disposable QEMU host — the only complete system here
+hosts/nixos-btw/    the reference machine, complete — disks, user, home-manager
+hosts/vm.nix        the disposable QEMU host
+templates/laptop/   the /etc/nixos `nix flake init` writes for a NEW machine
 dwm/ st/ dmenu/ slstatus/   vendored sources, patches and config.h
 utils/              the C utilities
 doom/               $DOOMDIR: init.el, config.el, packages.el
-bash/ dunst/ fcitx5/ picom/ tmux/   deployed by the module
+bash/ dunst/ fcitx5/ picom/ thunar/ tmux/   deployed by the module
 ```
 
-Machine-specific session setup — monitor layout, wallpaper, pointer warp —
-goes in `~/.config/suckless/autostart.sh`, which the dwm launcher sources.
-It is deliberately not in the flake: it is state, not configuration.
+**`nix/*` never describes a disk; `hosts/*` does.** That is the whole
+division. Import `nixosModules.laptop` and you get a desktop and a chipset
+and none of anyone else's partitions; build `nixosConfigurations.nixos-btw`
+and you get this laptop, UUIDs and all.
+
+Machine-specific session setup — monitor layout, pointer warp — is
+`~/.config/suckless/autostart.sh`, which the dwm launcher sources. The
+module never writes it: it is the host's, and `hosts/nixos-btw/autostart.sh`
+is installed into `$HOME` by an activation script so that even this piece of
+state is declarative for the one machine that has an opinion about it.
 
 ## Login
 

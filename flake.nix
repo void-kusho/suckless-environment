@@ -4,8 +4,26 @@
   # nixos-25.05 went end of life; 26.05 is the current stable.
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
 
+  # For hosts/nixos-btw only -- the reference machine declares its user's
+  # applications with home-manager, and a host that is the machine has to
+  # carry that too. Nothing else here touches it: nixosModules.default and
+  # nixosModules.laptop have no home-manager in them, so importing this
+  # repository as a module does not drag it in.
+  #
+  # The branch MUST match nixpkgs. home-manager's modules are written
+  # against a specific release, and pairing release-25.05 with nixos-26.05
+  # is how options break quietly.
+  inputs.home-manager = {
+    url = "github:nix-community/home-manager/release-26.05";
+    inputs.nixpkgs.follows = "nixpkgs";
+  };
+
   outputs =
-    { self, nixpkgs }:
+    {
+      self,
+      nixpkgs,
+      home-manager,
+    }:
     let
       lib = nixpkgs.lib;
       forAllSystems =
@@ -114,12 +132,50 @@
         }
       );
 
-      # The only complete system here is the disposable one: a VM owns its
-      # virtual disk, so declaring it costs nothing and breaks nothing.
-      # See hosts/vm.nix.
-      nixosConfigurations.vm = nixpkgs.lib.nixosSystem {
-        system = "x86_64-linux";
-        modules = [ ./hosts/vm.nix ];
+      nixosConfigurations = {
+        # The disposable one: a VM owns its virtual disk, so declaring it
+        # costs nothing and strands nobody. See hosts/vm.nix.
+        vm = nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          modules = [ ./hosts/vm.nix ];
+        };
+
+        # The reference machine, complete -- disks, user, bootloader and
+        # all. This is the machine every parity claim in CLAUDE.md is
+        # checked against, and it is now checked here too rather than
+        # described from a distance.
+        #
+        #   sudo nixos-rebuild switch --flake /home/void/suckless-environment#nixos-btw
+        #
+        # It carries real UUIDs, which is the cost: they are true until
+        # these disks are reformatted, and hosts/nixos-btw/default.nix says
+        # how to refresh them. Reproducing this desktop on OTHER hardware
+        # goes through `nix flake init -t .#laptop', which writes an
+        # /etc/nixos with no disks in it.
+        nixos-btw = nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          modules = [
+            ./hosts/nixos-btw
+
+            # home-manager as a NixOS module rather than a standalone
+            # profile: one `nixos-rebuild switch' applies the system and the
+            # home together, with no second command to forget.
+            home-manager.nixosModules.home-manager
+            {
+              home-manager = {
+                # Use the system's pkgs, so the unfree predicate in the host
+                # applies to home.nix too and nixpkgs is not evaluated twice.
+                useGlobalPkgs = true;
+                # Into /etc/profiles/per-user/void: part of the system
+                # closure, so it rolls back with the system.
+                useUserPackages = true;
+                users.void = import ./hosts/nixos-btw/home.nix;
+                # Rename a colliding file instead of aborting activation.
+                backupFileExtension = "backup";
+              };
+            }
+          ];
+        };
       };
 
       # `nix flake check` builds every one of these, so CI and a bare
@@ -132,6 +188,11 @@
           import ./nix/packages.nix { inherit pkgs; }
           // {
             vm = self.nixosConfigurations.vm.config.system.build.toplevel;
+
+            # The reference machine itself. This is the strongest check in
+            # here by a wide margin: it is not a stand-in for the machine,
+            # it IS the machine, home-manager and disks included.
+            nixos-btw = self.nixosConfigurations.nixos-btw.config.system.build.toplevel;
 
             # nixosModules.laptop has no filesystem of its own, so it cannot
             # be a nixosConfiguration. Give it a throwaway root purely to

@@ -29,11 +29,19 @@ BAT1 · intel_backlight · keyboard br/abnt2
 eDP-1 1920x1080@60 at 0x0 ; DP-1 1920x1080@180 at 1920x0 (primary)
 ```
 
-The partition table used to be recorded here too. It is not any more, and
-neither is it in the flake: the machine is being reinstalled, every UUID
-changes with the format, and a stale UUID in a repository is a trap that
-looks like documentation. Partitions belong to the `hardware-configuration.nix`
-that `nixos-generate-config` writes on the installed system.
+The partitions are recorded, in
+`hosts/nixos-btw/hardware-configuration.nix` -- the file
+`nixos-generate-config` wrote on this machine, snapshotted into the
+repository so `nixosConfigurations.nixos-btw` is the machine rather than a
+description of it. They were kept out for a while, on the grounds that the
+machine was about to be reinstalled and a stale UUID is a trap that looks
+like documentation. That reinstall happened on 2026-09-05; these are the
+UUIDs it produced. The refresh command is at the top of the file, and
+decision 2 has the rest of the argument.
+
+The *modules* still carry no disk. That is the part that was never in
+question: `nixosModules.laptop` is imported by other people's
+configurations, and a host is not.
 
 The three PCI IDs above are the reason `hardware.enableRedistributableFirmware`
 is not optional here -- see below.
@@ -335,20 +343,38 @@ file read-only and giving up the configtool.
    dired was tofu until `nerd-fonts.symbols-only` joined `fonts.packages`.
    The remaining doctor warnings are decision 4 working as intended: no
    `rustc`, no `zig`, no `python` on the system.
-2. **The repository describes a desktop and a chipset, never a disk.**
-   `hosts/laptop.nix` used to be a complete host carrying the machine's real
-   UUIDs, systemd-boot and the user account. It is now `nix/laptop.nix`,
-   exported as `nixosModules.laptop`: Intel platform facts and the desktop
-   toggle, with no `fileSystems`, no `swapDevices`, no `boot.loader`, no
-   `users.users` and no `stateVersion`. Those are the installation's, and the
-   installation is done by hand.
+2. **The *modules* describe a desktop and a chipset, never a disk. The
+   repository also carries one real host.** `nixosModules.default` and
+   `nixosModules.laptop` (`nix/module.nix`, `nix/laptop.nix`) have no
+   `fileSystems`, no `swapDevices`, no `boot.loader`, no `users.users` and no
+   `stateVersion` -- those belong to an installation, and someone importing
+   this repository must not inherit another machine's disks.
 
-   This reverses the previous decision, whose reasoning was sound: a template
-   that cannot be evaluated is a template nobody checks, and that is how the
-   Flatpak assertion survived. The concern is met a different way now --
-   `checks.laptop-module` builds the module against a throwaway root declared
-   inside the check, so the fake disk lives in the gate and never in the
-   module. `nix flake check` still fails if the module stops evaluating.
+   `hosts/nixos-btw/` is the exception, and it is deliberate: it is the
+   reference machine, complete -- the generated `hardware-configuration.nix`
+   with its real UUIDs, systemd-boot, the user, the English/Japanese
+   specialisation, the monitor layout, and home-manager for the user's
+   applications. `sudo nixos-rebuild switch --flake .#nixos-btw` rebuilds
+   this laptop from a clone, and `/etc/nixos` holds nothing but a pointer.
+
+   This is a second reversal, and both earlier positions were right about
+   something. The first version of `hosts/laptop.nix` was deleted because a
+   repository that ships a disk hands its UUIDs to everyone who imports it --
+   true, and the split above is what actually answers it: the *modules* stay
+   diskless, so importing them is still safe, and the host is not something
+   anyone imports. The second version was deleted because "the machine is
+   being reinstalled and a stale UUID is a trap that looks like
+   documentation" -- also true, and now spent: the machine *was* reinstalled,
+   on 2026-09-05, and these UUIDs are the ones it has. When they go stale
+   again the fix is one command, written at the top of the file.
+
+   What the change buys is the thing neither earlier version had: the
+   machine every parity claim here is measured against is now *evaluated by
+   the gate*. `checks.nixos-btw` builds it whole -- home-manager, disks and
+   all -- so `nix flake check` fails when the reference machine stops
+   building, rather than when a stand-in for it does. `checks.laptop-module`
+   and `checks.install-template` still cover the diskless paths against a
+   throwaway root.
 3. **`hosts/minimal.nix` and `default.nix` are gone.** Once laptop.nix
    covered the machine, minimal.nix was a second template of the same thing, and `default.nix`
    duplicated `nixosModules.default` for non-flake users. One interface.
@@ -386,30 +412,37 @@ file read-only and giving up the configtool.
    template that rots) is answered the same way as there: `checks.
    install-template` builds `templates/laptop/configuration.nix` on top of
    `nixosModules.laptop` against a throwaway root, so `nix flake check` fails
-   if the template stops evaluating. `home.nix` is the one part outside the
-   gate -- checking it means taking home-manager as an input of this
-   repository, and twenty lines of `home.packages` is not worth an input.
+   if the template stops evaluating.
+
+   The template and `hosts/nixos-btw/` are not duplicates, and the
+   difference is worth stating because they look alike: the host is *this*
+   machine, with its disks, and it is rebuilt; the template is a starting
+   point for *another* machine, with no disks, and it is copied once and
+   then owned by whoever copied it. When they drift apart, the host is
+   right and the template is a teaching copy.
 
 ## Using the flake as the interface
 
 `flake.nix` is the whole API, and every one of these is meant to be used:
 
+* `nixosConfigurations.nixos-btw` — the reference machine itself.
+  `sudo nixos-rebuild switch --flake .#nixos-btw` rebuilds this laptop from
+  a clone; `/etc/nixos` holds a pointer and nothing else. See decision 2.
 * `nix run .#vm` — boot the test host in QEMU, no disk, no result symlink.
-  `hosts/vm.nix` is the only complete system left here; a VM owns its virtual
-  disk, so declaring one costs nothing and strands nobody.
-* `nix flake check` — builds all five tools, the VM, `nixosModules.laptop`
-  and `templates/laptop/configuration.nix`, the last two against a throwaway
-  root. The gate.
+  A VM owns its virtual disk, so declaring one costs nothing.
+* `nix flake check` — builds all five tools, the VM, the whole `nixos-btw`
+  host, `nixosModules.laptop` and `templates/laptop/configuration.nix` (the
+  last two against a throwaway root). The gate.
 * `nix fmt` — `nixfmt-tree`. It walks far more than this repository and exits
   non-zero on unrelated trees; `nixfmt` on the `.nix` files is the honest
   check.
 * `nix flake init -t .#laptop` — writes a complete `/etc/nixos` next to the
-  generated `hardware-configuration.nix`. The reproduction path; see
-  decision 6.
+  generated `hardware-configuration.nix`. The reproduction path for *another*
+  machine; see decision 6.
 * `nixosModules.default` — the desktop alone, for another machine.
 * `nixosModules.laptop` — the desktop plus this chipset. Combine it with the
-  generated `hardware-configuration.nix` in `/etc/nixos` and rebuild with
-  `sudo nixos-rebuild switch --flake /etc/nixos#laptop`.
+  generated `hardware-configuration.nix` and name the result yourself; the
+  template does exactly that, and calls it `nixos-btw`.
 
 ## Conventions
 
