@@ -127,9 +127,33 @@ let
     ACTION=="add", SUBSYSTEM=="leds", KERNEL=="*::kbd_backlight", RUN+="${pkgs.coreutils}/bin/chmod g+w /sys/class/leds/%k/brightness"
   '';
 
-  # st is not shipped with a .desktop file upstream; exo (Thunar's
-  # "Open Terminal Here") needs one advertising TerminalEmulator to be
-  # able to pick it.
+  # Adapter between st and exo's fallback calling convention.
+  #
+  # exo 4.20 delegates "run this in the preferred terminal" to
+  # `xfce4-mime-helper', which ships in xfce4-settings -- a 1.5 GiB
+  # closure for one 30 KiB binary, so it is not installed here. Without
+  # it exo_execute_preferred_application_on_screen() takes its fallback
+  # path, which resolves the helpers.rc value with g_find_program_in_path
+  # and then spawns exactly
+  #
+  #     <that binary> "<the whole command line, as ONE argv entry>"
+  #
+  # with no -e and no shell. st reads that single string as argv[0] and
+  # dies with "child exited with status 1", which is what Thunar's error
+  # dialog was reporting: *nothing* could be run in a terminal from the
+  # file manager -- a compiled binary, a script, a Terminal=true desktop
+  # entry, any of them. The real helper framework would have used the
+  # `X-XFCE-CommandsWithParameter=%B -e %s' line of an X-XFCE-Helper
+  # file; this does the same job in three lines.
+  stExoHelper = pkgs.writeShellScriptBin "st-exo-helper" ''
+    # No argument: plain terminal (Thunar's "Open Terminal Here", which
+    # passes the directory through exo's --working-directory instead).
+    [ "$#" -eq 0 ] && exec ${packages.st}/bin/st
+    exec ${packages.st}/bin/st -e ${pkgs.bash}/bin/sh -c "$*"
+  '';
+
+  # st is not shipped with a .desktop file upstream; gio needs one to list
+  # st among the applications that can open a file.
   stDesktopEntry = pkgs.writeTextFile {
     name = "st-desktop-entry";
     destination = "/share/applications/st.desktop";
@@ -235,7 +259,7 @@ in
         # Thunar itself comes from programs.thunar below, which is what wires
         # up its D-Bus services; these are the backends its plugins call.
         #   * "Open Terminal Here" goes through exo-open -> helpers.rc (below)
-        #     -> the st desktop entry (below).
+        #     -> st-exo-helper (above).
         #   * "Extract Here" delegates to xarchiver.
         xfce4-exo
         xarchiver
@@ -282,8 +306,10 @@ in
         autoconf
         automake
 
-        # desktop entry so exo/gio can find st as a TerminalEmulator
+        # desktop entry so gio can offer st as an application
         stDesktopEntry
+        # ...and the shim exo's helpers.rc points at (see below)
+        stExoHelper
       ]
       ++ lib.optionals (cfg.extraPackages != [ ]) cfg.extraPackages;
 
@@ -470,15 +496,31 @@ in
       binfmt = true;
     };
 
-    # Preferred applications for Xfce helpers (exo-open, used by Thunar's
-    # native "Open Terminal Here"). Values are desktop-file ids. A user
-    # ~/.config/xfce4/helpers.rc overrides this.
+    # Preferred applications for exo-open, which is how Thunar opens a
+    # terminal and how it runs anything marked "run in a terminal".
+    #
+    # Two things about this file are not what they look like.
+    #
+    # The values are *binary names*, not desktop-file ids: exo's fallback
+    # feeds them straight to g_find_program_in_path. `brave-browser' was
+    # therefore a dead entry -- the binary is `brave' -- and `st' pointed
+    # at a terminal that cannot be called the way exo calls it, hence
+    # st-exo-helper above.
+    #
+    # And exo reads it from g_get_user_config_dir() only. Not
+    # XDG_CONFIG_DIRS, so not /etc/xdg: this /etc copy is where the
+    # content lives, and the tmpfiles rule below is what actually puts it
+    # somewhere exo will look. Removing the ~/.config symlink and writing
+    # a real file there overrides it; tmpfiles never touches a path that
+    # already exists.
     environment.etc."xdg/xfce4/helpers.rc".text = ''
-      TerminalEmulator=st
-      TerminalEmulatorDismissed=true
-      WebBrowser=brave-browser
-      WebBrowserDismissed=true
+      TerminalEmulator=st-exo-helper
+      WebBrowser=brave
     '';
+
+    systemd.user.tmpfiles.rules = [
+      "L %h/.config/xfce4/helpers.rc - - - - /etc/xdg/xfce4/helpers.rc"
+    ];
 
     # Timezone. Was never set, so the system -- the test VM included -- ran
     # in UTC.

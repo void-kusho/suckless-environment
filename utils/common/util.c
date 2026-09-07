@@ -73,16 +73,42 @@ int
 exec_wait(const char *const argv[])
 {
 	pid_t pid;
-	int status;
+	int status = 0;
+	sigset_t block, prev;
+
+	/* SIGCHLD has to be blocked around the whole fork/wait, because
+	 * sigchld_handler() below reaps *every* child with waitpid(-1,
+	 * WNOHANG). Without this it wins the race against the waitpid()
+	 * here for anything that exits quickly -- a `pgrep', say -- and
+	 * that call then fails with ECHILD leaving `status' uninitialized,
+	 * so the exit code returned is whatever was on the stack.
+	 *
+	 * dmenu-session reads this return value to decide whether a lock
+	 * screen is already up: garbage there means the screen silently
+	 * fails to lock, some of the time. The mask is restored in the
+	 * child before exec, since it survives execve. */
+	sigemptyset(&block);
+	sigaddset(&block, SIGCHLD);
+	sigprocmask(SIG_BLOCK, &block, &prev);
 
 	pid = fork();
-	if (pid < 0)
+	if (pid < 0) {
+		sigprocmask(SIG_SETMASK, &prev, NULL);
 		die("fork:");
+	}
 	if (pid == 0) {
+		sigprocmask(SIG_SETMASK, &prev, NULL);
 		execvp(argv[0], (char *const *)argv);
 		_exit(127);
 	}
-	waitpid(pid, &status, 0);
+	while (waitpid(pid, &status, 0) < 0) {
+		if (errno != EINTR) {
+			sigprocmask(SIG_SETMASK, &prev, NULL);
+			return -1;
+		}
+	}
+	sigprocmask(SIG_SETMASK, &prev, NULL);
+
 	return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
 }
 

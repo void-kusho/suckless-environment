@@ -160,6 +160,52 @@ The VM also boots straight into dwm (autologin + `startx` from
 nothing, and `/etc/profile` sources `set-environment` before that hook, so
 PATH is already correct when X starts.
 
+## What driving the installed session found
+
+Three failures reported from the reference machine — the session menu did
+nothing, and Thunar could not open a terminal. All three were found by
+sending synthetic keys into the live dwm with `xdotool` and reading what
+the session actually spawned; none of them is visible in a build.
+
+* **`loginctl poweroff` and `loginctl reboot` do not exist.** They are
+  *elogind* verbs — real on `origin/artix`, where these `.c` files come
+  from, and absent from systemd's loginctl, which knows only session, user
+  and seat commands. `exec_detach` runs them in a detached child whose
+  stderr goes nowhere, so "Unknown command verb" was never printed and the
+  menu entry looked inert. `dmenu-session` calls `systemctl` now; logind
+  answers `CanPowerOff` and `CanReboot` with "yes" for an active local
+  session, so no password is involved either way.
+* **`exec_wait` raced the SIGCHLD handler it installs.** `sigchld_handler`
+  reaps *every* child with `waitpid(-1, WNOHANG)`, so for anything that
+  exits as fast as a `pgrep` it won the race, and `exec_wait`'s own
+  `waitpid` then failed with ECHILD leaving `status` uninitialized. The one
+  caller that reads the value is the "is a lock screen already up?" guard
+  in `action_lock`, which therefore skipped locking whenever the stack
+  garbage happened to be zero. SIGCHLD is blocked around the fork/wait now,
+  and restored in the child before exec.
+* **Thunar could not run anything in a terminal, ever.** exo 4.20 hands
+  "run this in the preferred terminal" to `xfce4-mime-helper`, which ships
+  only in `xfce4-settings` — a 1.5 GiB closure, so it is deliberately not
+  installed. Without it exo takes a fallback path that spawns
+  `<binary> "<the entire command line as one argv entry>"`: st reads that
+  string as argv[0] and dies with *"child exited with status 1"*, which is
+  what the error dialog was reporting. `st-exo-helper` in `nix/module.nix`
+  turns that one argument back into `st -e sh -c`.
+
+  The same fallback explains two dead entries in the old `helpers.rc`. It
+  resolves values with `g_find_program_in_path`, so they are *binary
+  names*, not desktop-file ids: `WebBrowser=brave-browser` never matched
+  anything (the binary is `brave`). And it reads `g_get_user_config_dir()`
+  and nothing else — not `XDG_CONFIG_DIRS`, so the `/etc/xdg` copy the
+  module installed was never opened by anyone. A `systemd.user.tmpfiles`
+  rule links `~/.config/xfce4/helpers.rc` at it; `L` (not `L+`) leaves a
+  real file alone, which is how a user still overrides it.
+
+What was *not* broken, having been suspected: the `Ctrl+Alt+Delete` binding
+itself, which spawns `dmenu-session` reliably, and the `-m` argument shared
+by the four dmenu commands — `spawn()` rewrites `dmenumon` for all of them,
+so the menus do follow the focused monitor.
+
 ## Timezone, language and theme
 
 None of the three were configured at all, so the system ran in UTC, with
@@ -288,7 +334,11 @@ repository does not.
 * Machine-specific session state lives in `~/.config/suckless/autostart.sh`,
   never in the flake.
 * `utils/` on this branch carries **no** `config.h` — the backends
-  (`powerprofilesctl`, `betterlockscreen`, `loginctl`) are in the `.c` files,
-  which is why `services.power-profiles-daemon` is enabled. Do not copy the
-  `guix` branch's generated `config.h` here; `.gitignore` blocks it.
+  (`powerprofilesctl`, `betterlockscreen`, `systemctl`) are in the `.c`
+  files, which is why `services.power-profiles-daemon` is enabled. Do not
+  copy the `guix` branch's generated `config.h` here; `.gitignore` blocks
+  it. Those hardcoded backends are also where this branch diverges from
+  `origin/artix`: the same line that reads `systemctl` here reads
+  `loginctl` there, because elogind and systemd disagree about which of
+  them owns the power verbs.
 * Nothing that fails `nix flake check` reaches `nixos-rebuild switch`.

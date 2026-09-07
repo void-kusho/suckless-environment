@@ -333,7 +333,7 @@ Plain POSIX C, no configuration file — the backends are in the sources.
 - **dmenu-clipd** / **dmenu-clip** — clipboard daemon and history browser
 - **dmenu-cpupower** — power profile selector, through `powerprofilesctl`
 - **dmenu-session** — lock / logout / reboot / shutdown, through
-  `betterlockscreen` and `loginctl`
+  `betterlockscreen` and `systemctl`
 
 ## Contributing
 

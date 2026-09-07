@@ -79,27 +79,38 @@ action_logout(char *const extra_argv[])
 	exec_wait(kill_dwm);
 }
 
+/* Power commands go through systemctl, not loginctl.
+ *
+ * `loginctl poweroff' and `loginctl reboot' are elogind extensions: they
+ * exist on the Artix branch's init, and nowhere in systemd. systemd's
+ * loginctl knows only session, user and seat verbs, so the call died with
+ * "Unknown command verb" -- into a detached child whose stderr goes
+ * nowhere, which is why the menu entry appeared to do absolutely nothing.
+ *
+ * systemctl asks logind for the same thing over D-Bus, and polkit lets an
+ * active local session do it without a password (org.freedesktop.login1
+ * CanPowerOff / CanReboot both answer "yes" here). */
 static void
 action_reboot(char *const extra_argv[])
 {
-	const char *reboot_cmd[] = { "loginctl", "reboot", NULL };
+	const char *reboot_cmd[] = { "systemctl", "reboot", NULL };
 
 	if (!confirm("reboot?", extra_argv))
 		return;
 
-	/* exec_detach because loginctl reboot does not return */
+	/* exec_detach because systemctl reboot does not return */
 	exec_detach(reboot_cmd);
 }
 
 static void
 action_shutdown(char *const extra_argv[])
 {
-	const char *poweroff_cmd[] = { "loginctl", "poweroff", NULL };
+	const char *poweroff_cmd[] = { "systemctl", "poweroff", NULL };
 
 	if (!confirm("shutdown?", extra_argv))
 		return;
 
-	/* exec_detach because loginctl poweroff does not return */
+	/* exec_detach because systemctl poweroff does not return */
 	exec_detach(poweroff_cmd);
 }
 
