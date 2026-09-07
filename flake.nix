@@ -53,7 +53,9 @@
           path = ./templates/laptop;
           description = "A complete /etc/nixos for the suckless-environment desktop";
           welcomeText = ''
-            Wrote `flake.nix`, `configuration.nix`, `home.nix` and `autostart.sh`.
+            This template is `flake.nix`, `configuration.nix`, `home.nix` and
+            `autostart.sh`. Any of them that already existed was left alone —
+            look for "refusing to overwrite" above.
 
             Next:
 
