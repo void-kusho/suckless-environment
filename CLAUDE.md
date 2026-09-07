@@ -284,8 +284,33 @@ repository does not.
   branch**. Now deployed by `programs.tmux`. The `guix` and `artix` branches
   still lack it.
 * `wallpapers/sushi_original.png` — see above.
+* `thunar/uca.xml` — **Thunar ships no "Open Terminal Here" of its own.**
+  That entry in its context menu is a *custom action*, and the only copy of
+  it was in the reference machine's `~/.config/Thunar/uca.xml`. Every fresh
+  install came up with a file manager that could not open a terminal, and no
+  hint that anything was missing. It goes to `/etc/xdg/Thunar/uca.xml` now:
+  Thunar looks the file up with `xfce_resource_lookup`, which walks
+  `XDG_CONFIG_DIRS`, so unlike exo's `helpers.rc` this one needs no tmpfiles
+  rule. Editing the actions in Thunar's dialog writes the `~/.config` copy,
+  which then shadows it — the intended way to add your own.
 * The neofetch config turned out to be the stock file, with every value at
   its default; nothing had been lost.
+
+Two small things went the other way — they were in the *installation* and
+belonged to the *desktop*, so they moved into `nix/module.nix` as defaults:
+`console.font = "Lat2-Terminus16"` (the kernel's built-in console font is
+ASCII, which is fine right up to the first "ç" at the Ly greeter) and
+`services.xserver.autoRepeatDelay/Interval` at 200/35, because navigating a
+tiling window manager is held keys and X's 660 ms default is felt.
+
+And one that is drift rather than a gap, recorded because it will happen
+again: **fcitx5 rewrites `~/.config/fcitx5/profile`** at runtime. The
+`/etc/xdg` copy this repository ships is a seed and nothing more, so the
+reference machine has drifted back to `DefaultIM=mozc` — the exact setting
+`fcitx5/profile` carries a comment against, because it routes ABNT2 through
+the Japanese engine and the keyboard "goes English". Deleting the user copy
+and re-logging is the fix; there is no declarative one, short of making the
+file read-only and giving up the configtool.
 
 ## Decisions
 
@@ -344,6 +369,26 @@ repository does not.
    `hosts/vm.nix` sets it to `false`: the test VM's whole point is booting
    straight into dwm, and the module hands `services.xserver.autorun` and the
    startx pseudo-DM back when it goes off.
+6. **The installation is a flake template, `templates/laptop/`.** Decision 2
+   is about what the repository *declares*; it left open how anyone is
+   supposed to reproduce this machine, and the honest answer was "copy the
+   twelve-line `flake.nix` out of the README and work out the rest", which
+   is not a reproduction. The template is the reference machine's `/etc/nixos`
+   with its disks removed: `flake.nix` (nixpkgs + this repo + home-manager),
+   `configuration.nix` (boot, identity, user, language, the autostart
+   activation), `home.nix` and `autostart.sh`. Four `EDIT` markers, then
+   rebuild.
+
+   This does not reopen the argument decision 2 settled. Nothing in the
+   template is *declared* by the repository -- it is written into a file the
+   installation owns, once, and the repository never reads it again. And the
+   objection that killed `hosts/laptop.nix` (a template nobody evaluates is a
+   template that rots) is answered the same way as there: `checks.
+   install-template` builds `templates/laptop/configuration.nix` on top of
+   `nixosModules.laptop` against a throwaway root, so `nix flake check` fails
+   if the template stops evaluating. `home.nix` is the one part outside the
+   gate -- checking it means taking home-manager as an input of this
+   repository, and twenty lines of `home.packages` is not worth an input.
 
 ## Using the flake as the interface
 
@@ -352,16 +397,19 @@ repository does not.
 * `nix run .#vm` — boot the test host in QEMU, no disk, no result symlink.
   `hosts/vm.nix` is the only complete system left here; a VM owns its virtual
   disk, so declaring one costs nothing and strands nobody.
-* `nix flake check` — builds all five tools, the VM, and `nixosModules.laptop`
-  against a throwaway root. The gate.
+* `nix flake check` — builds all five tools, the VM, `nixosModules.laptop`
+  and `templates/laptop/configuration.nix`, the last two against a throwaway
+  root. The gate.
 * `nix fmt` — `nixfmt-tree`. It walks far more than this repository and exits
-  non-zero on unrelated trees; `nixfmt` on the six `.nix` files is the honest
+  non-zero on unrelated trees; `nixfmt` on the `.nix` files is the honest
   check.
+* `nix flake init -t .#laptop` — writes a complete `/etc/nixos` next to the
+  generated `hardware-configuration.nix`. The reproduction path; see
+  decision 6.
 * `nixosModules.default` — the desktop alone, for another machine.
 * `nixosModules.laptop` — the desktop plus this chipset. Combine it with the
   generated `hardware-configuration.nix` in `/etc/nixos` and rebuild with
-  `sudo nixos-rebuild switch --flake /etc/nixos#laptop`. README has the
-  twelve-line `flake.nix` that joins them.
+  `sudo nixos-rebuild switch --flake /etc/nixos#laptop`.
 
 ## Conventions
 

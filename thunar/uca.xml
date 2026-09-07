@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Thunar custom actions.
+
+  Thunar has no built-in "Open Terminal Here": the entry in its context menu
+  is this file and nothing else. It used to exist only in the reference
+  machine's ~/.config/Thunar/uca.xml, so a fresh install of this desktop came
+  up with no way to open a terminal from the file manager at all.
+
+  Thunar looks this up with xfce_resource_lookup(XFCE_RESOURCE_CONFIG, ...),
+  which walks XDG_CONFIG_DIRS, so /etc/xdg is enough -- unlike exo's
+  helpers.rc, which is read from the user config dir only. Editing the
+  actions through Thunar's own dialog writes ~/.config/Thunar/uca.xml, which
+  then shadows this file; that is the intended way to add your own.
+
+  %f is the current directory, and --working-directory is deliberate: exo's
+  other form, `exo-open --launch TerminalEmulator <path>', hands the path to
+  the terminal as a command to run rather than a directory to sit in.
+-->
+<actions>
+<action>
+	<icon>utilities-terminal</icon>
+	<name>Open Terminal Here</name>
+	<submenu></submenu>
+	<unique-id>1788642269732976-1</unique-id>
+	<command>exo-open --working-directory %f --launch TerminalEmulator</command>
+	<description>Open a terminal in this directory</description>
+	<range></range>
+	<patterns>*</patterns>
+	<startup-notify/>
+	<directories/>
+</action>
+</actions>

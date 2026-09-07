@@ -343,6 +343,12 @@ in
         model = "abnt2";
         variant = "abnt2";
       };
+
+      # Key repeat. X's defaults (660 ms before the first repeat, ~40 ms
+      # between them) are slow enough to be felt in a tiling window manager,
+      # where navigation is held keys. These are the reference machine's.
+      autoRepeatDelay = lib.mkDefault 200;
+      autoRepeatInterval = lib.mkDefault 35;
     };
     services.displayManager.defaultSession = lib.mkDefault "none+dwm";
 
@@ -378,6 +384,11 @@ in
     # flow, the password prompt is a TTY. br-abnt2 is kbd's own name for
     # this keyboard.
     console.keyMap = lib.mkDefault "br-abnt2";
+
+    # A console font with Latin-1/Latin-2 coverage, so accented Portuguese
+    # is readable at the Ly greeter and on a TTY. The kernel's built-in font
+    # is ASCII, which is fine right up to the first "ç".
+    console.font = lib.mkDefault "Lat2-Terminus16";
 
     # Bash: the user's interactive shell configuration (history, shopts,
     # Tokyo Night colors/prompt, aliases, neofetch greeting). Injected
@@ -622,6 +633,14 @@ in
     systemd.user.tmpfiles.rules = [
       "L %h/.config/xfce4/helpers.rc - - - - /etc/xdg/xfce4/helpers.rc"
     ];
+
+    # Thunar's custom actions -- which is where its "Open Terminal Here"
+    # actually comes from; Thunar ships no such entry of its own. This one
+    # lived only in the reference machine's home directory, so every fresh
+    # install of this desktop had a file manager that could not open a
+    # terminal. Unlike helpers.rc above, Thunar does search XDG_CONFIG_DIRS
+    # for it, so /etc/xdg is enough and no tmpfiles rule is needed.
+    environment.etc."xdg/Thunar/uca.xml".source = ../thunar/uca.xml;
 
     # Timezone. Was never set, so the system -- the test VM included -- ran
     # in UTC.

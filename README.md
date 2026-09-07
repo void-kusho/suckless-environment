@@ -43,94 +43,245 @@ every fresh install came up on a bare root window.
 ## Check it
 
 ```bash
-nix flake check     # both hosts evaluate and build, all five tools compile
+nix flake check     # all five tools compile, and everything here evaluates
 nix fmt             # format the Nix
 ```
 
-`nix flake check` is the gate: it builds every package, `hosts/vm.nix`, and
-`nixosModules.laptop` against a throwaway root. Nothing that fails it should
-reach `nixos-rebuild switch`.
+`nix flake check` is the gate. It builds every package, the QEMU host, and —
+each against a throwaway root, so the fake disk lives in the check and never
+in the thing being checked — `nixosModules.laptop` and the installation
+template from [step 3](#3-write-the-configuration). Nothing that fails it
+should reach `nixos-rebuild switch`.
 
-## Use it
+## Install it, from a blank disk
+
+Seven steps, start to finished desktop. Steps 1 and 2 are ordinary NixOS,
+written out because "install NixOS however you like" is not a step-by-step;
+the rest is this repository.
+
+The whole configuration is written for you in step 3 — there is nothing here
+to transcribe by hand.
+
+**Already running NixOS?** Skip to step 3, use `/etc/nixos` wherever it says
+`/mnt/etc/nixos`, and replace step 5 with the `nixos-rebuild` at the end of
+it.
+
+### 0. What you are about to get
+
+`nixosModules.laptop` is the desktop **plus** the Intel TigerLake hardware
+this was written on: redistributable firmware (the AX201 WiFi, the Jefferson
+Peak bluetooth and the Iris Xe GuC all load microcode at runtime and are dead
+without it), Intel microcode, `modesetting`, the iHD VA-API driver, thermald,
+fstrim and fwupd. On other hardware use `nixosModules.default` instead — same
+desktop, no chipset — and see [Use it as a module](#use-it-as-a-module).
 
 **This repository describes a desktop and a chipset. It never describes a
 disk.** There is no partition, no filesystem, no bootloader, no user and no
-`stateVersion` anywhere in it — install NixOS however you like, and keep the
-`hardware-configuration.nix` that `nixos-generate-config` writes for you in
-`/etc/nixos`, where it belongs. Two modules are offered instead:
+`stateVersion` anywhere in it. Those live in `/etc/nixos`, on the installed
+machine, in files you own — which is what step 3 gives you.
+
+### 1. Boot the ISO and partition
+
+Boot the official NixOS minimal ISO and get it on a network — the installer
+image has `wpa_supplicant` running already, so `wpa_cli` or a cable is
+enough. **Everything below happens from the installer**, which is the point:
+it is the one place where networking already works, so the machine's first
+boot is straight into the finished desktop.
+
+UEFI, wiping `/dev/nvme0n1` — **check the device name with `lsblk` first,
+this erases it**:
+
+```bash
+sudo -i
+parted /dev/nvme0n1 -- mklabel gpt
+parted /dev/nvme0n1 -- mkpart ESP fat32 1MiB 1GiB
+parted /dev/nvme0n1 -- set 1 esp on
+parted /dev/nvme0n1 -- mkpart swap linux-swap 1GiB 5GiB
+parted /dev/nvme0n1 -- mkpart root ext4 5GiB 100%
+
+mkfs.fat -F32 -n boot /dev/nvme0n1p1
+mkswap -L swap /dev/nvme0n1p2 && swapon /dev/nvme0n1p2
+mkfs.ext4 -L nixos /dev/nvme0n1p3
+
+mount /dev/disk/by-label/nixos /mnt
+mkdir -p /mnt/boot && mount /dev/disk/by-label/boot /mnt/boot
+```
+
+### 2. Generate the hardware configuration
+
+```bash
+nixos-generate-config --root /mnt
+```
+
+This writes `/mnt/etc/nixos/hardware-configuration.nix` — your disks' UUIDs,
+your initrd modules. **It is the one file here that cannot be copied from
+anywhere**, and the next step leaves it alone. It also writes a
+`configuration.nix`, which the template replaces:
+
+```bash
+mv /mnt/etc/nixos/configuration.nix /mnt/etc/nixos/configuration.nix.orig
+```
+
+### 3. Write the configuration
+
+One command. It writes `flake.nix`, `configuration.nix`, `home.nix` and
+`autostart.sh` beside the hardware configuration:
+
+```bash
+cd /mnt/etc/nixos
+nix --extra-experimental-features "nix-command flakes" \
+    flake init -t github:void-kusho/suckless-environment#laptop
+```
+
+`nix flake init` never overwrites a file that already exists, so the
+hardware configuration is safe either way.
+
+### 4. Edit four lines
+
+Open `/mnt/etc/nixos/configuration.nix` — `nano` and `vim` are both on the
+ISO — and change the lines marked `EDIT`:
 
 | | |
 |---|---|
-| `nixosModules.default` | the desktop, behind `programs.suckless-environment.enable` |
-| `nixosModules.laptop` | that, plus the Intel TigerLake hardware this was written on |
+| `networking.hostName` | whatever you want to call the machine |
+| `users.users.void` | your username — **also** in `flake.nix` and in the activation script at the bottom of the same file |
+| `time.timeZone` | `timedatectl list-timezones` |
+| `system.stateVersion` | the release you are installing |
 
-### On this machine
+Then two decisions, both explained in the file itself and both fine to leave
+alone:
 
-`nixosModules.laptop` carries the hardware facts — redistributable firmware
-(the AX201 WiFi, the Jefferson Peak bluetooth and the Iris Xe GuC all load
-microcode at runtime and are dead without it), Intel microcode, `modesetting`,
-the iHD VA-API driver, thermald, fstrim and fwupd. Combine it with your
-generated hardware block:
+- **Language.** The desktop is Japanese-first. The template turns it English
+  and keeps a `japanese` entry in the boot menu to switch back. Delete that
+  block for a Japanese system.
+- **home-manager.** The template uses it for user applications. Delete
+  `home.nix` and the blocks marked `HOME-MANAGER` in `flake.nix` if you would
+  rather declare everything in `configuration.nix`.
 
-```nix
-# /etc/nixos/flake.nix
-{
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
-  inputs.suckless-env.url = "github:void-kusho/suckless-environment/nixos";
-  # Without this, suckless-env drags in its own pinned nixpkgs and you
-  # evaluate (and download) two of them.
-  inputs.suckless-env.inputs.nixpkgs.follows = "nixpkgs";
+If you have one monitor, delete `autostart.sh` and the
+`system.activationScripts.suckless-autostart` block that installs it.
 
-  outputs = { nixpkgs, suckless-env, ... }: {
-    nixosConfigurations.laptop = nixpkgs.lib.nixosSystem {
-      system = "x86_64-linux";
-      modules = [
-        ./hardware-configuration.nix   # generated; disks live here, only here
-        suckless-env.nixosModules.laptop
-        {
-          networking.hostName = "kusho";   # letters, digits, - and _ only
-
-          users.users.void = {
-            isNormalUser = true;
-            extraGroups = [ "wheel" "networkmanager" "video" "input" ];
-            # Ly asks for a password and a user without one cannot log in at
-            # all. Set it here for the first boot and change it with
-            # `passwd`, or drop this line and run `passwd void` as root from
-            # a TTY before you ever reach the greeter.
-            initialPassword = "change-me";
-          };
-
-          system.stateVersion = "26.05";   # the release you installed
-        }
-      ];
-    };
-  };
-}
-```
+### 5. Install
 
 ```bash
-# The FIRST rebuild only. A freshly installed NixOS has no flake support
-# yet -- nixosModules.laptop turns it on, but that option does not exist
-# until the switch it is part of has already happened.
-sudo nixos-rebuild switch --flake /etc/nixos#laptop \
+nixos-install --flake /mnt/etc/nixos#nixos-btw \
   --option extra-experimental-features "nix-command flakes"
-
-# Every rebuild after that:
-sudo nixos-rebuild switch --flake /etc/nixos#laptop
+reboot
 ```
 
-`video` and `input` are what the backlight udev rules grant brightness
-writes to; `wheel` is what the disk-mounting polkit rule keys on.
+`#nixos-btw` is the `nixosConfigurations.<name>` in `flake.nix`; if you
+renamed it, name it here too.
 
-### On another machine
+Expect a long download — this builds the whole desktop, dwm and st and the
+utilities included. `nixos-install` asks for a root password at the end.
 
-Take the desktop without the Intel bits:
+The `--option` is needed because the ISO has flakes turned off; the installed
+system turns them on itself, so every rebuild afterwards is just:
+
+```bash
+sudo nixos-rebuild switch --flake /etc/nixos#nixos-btw
+```
+
+### 6. First login
+
+Ly greets you on tty1, themed Tokyo Night, with `dwm` already selected.
+Log in with the password from `initialPassword`, then change it:
+
+```bash
+passwd
+```
+
+and delete the `initialPassword` line — it only ever applied to the account's
+creation, but leaving a password in a file you may publish is a bad habit.
+
+You should be looking at dwm: a wallpaper, a bar with the date and battery,
+and nothing else. `Super+Return` opens a terminal, `Super+d` lists
+applications, `Ctrl+Alt+Del` offers lock/logout/reboot/shutdown. The full map
+is in [Keybindings](#keybindings).
+
+Wireless is NetworkManager now, and your user is in its group, so no `sudo`:
+`wifitui` in a terminal, or `nmtui` if you prefer the one that ships with it.
+
+### 7. Finish Doom Emacs
+
+The framework is a git checkout and stays imperative — the *configuration*
+comes from this repository through `$DOOMDIR`, so this is a one-time
+bootstrap and never needs repeating:
+
+```bash
+git clone https://github.com/doomemacs/core ~/.config/emacs
+~/.config/emacs/bin/doom install
+rm -rf ~/.config/doom     # dead weight; see the Doom Emacs section below
+```
+
+### Two things worth doing once
+
+**A lock screen with your wallpaper.** `betterlockscreen` locks against a
+pre-rendered cache; without it, `Ctrl+Alt+Del` → `lock` has nothing to draw:
+
+```bash
+betterlockscreen -u ~/.config/suckless/wallpaper.png
+```
+
+**Icons and cursors.** The reference machine uses icon and cursor themes
+downloaded by hand into `~/.local/share/icons`; they are user state and are
+not packaged here. Without them you get the module's defaults —
+Papirus-Dark and Adwaita, both installed. `lxappearance` changes either.
+
+### When something goes wrong
+
+**The rebuild fails.** Read the first error, not the last; nixpkgs
+renames things between releases and the message names the old and the new
+option. Nothing has changed on the running system — a failed `switch` is a
+no-op.
+
+**It boots to a black screen or a TTY.** Pick the previous generation in the
+boot menu; every rebuild leaves one. From a TTY,
+`sudo nixos-rebuild switch --rollback` does the same thing.
+
+**The greeter rejects your password.** The console keymap is `br-abnt2`.
+If your keyboard is not Brazilian, set `console.keyMap` and
+`services.xserver.xkb.layout` in `configuration.nix` — both are `mkDefault`
+in the module precisely so you can.
+
+**The keyboard "goes English" while typing.** fcitx5 rewrites
+`~/.config/fcitx5/profile` at runtime, and the copy this repository ships is
+only a seed. If it has drifted to `DefaultIM=mozc`, every key goes through
+the Japanese engine. `rm ~/.config/fcitx5/profile` and log in again; the
+shipped profile leaves mozc on `Ctrl+Alt+Space` instead of underfoot.
+
+**A program you compiled elsewhere will not start.** It says which library it
+wants — `error while loading shared libraries: libfoo.so.1`. Add the package
+that provides it to `programs.nix-ld.libraries` and rebuild. The module
+already lists the GTK, webkit, X11, OpenGL, audio and font sets.
+
+**Check before you switch.** `nix flake check` in a clone of this repository
+builds every tool, the VM host, the module and the template. Nothing that
+fails it should reach `nixos-rebuild switch`.
+
+## Use it as a module
+
+If you do not want the whole `/etc/nixos` above — on other hardware, or in a
+configuration you already have:
 
 ```nix
 imports = [ inputs.suckless-env.nixosModules.default ];
 programs.suckless-environment.enable = true;
 programs.suckless-environment.extraPackages = with pkgs; [ discord steam ];
 ```
+
+| | |
+|---|---|
+| `nixosModules.default` | the desktop, behind `programs.suckless-environment.enable` |
+| `nixosModules.laptop` | that, plus the Intel TigerLake hardware this was written on |
+
+Remember `inputs.suckless-env.inputs.nixpkgs.follows = "nixpkgs"`. Without
+it you evaluate and download a second nixpkgs, the one pinned in this
+repository's own `flake.lock`.
+
+`video` and `input` are the groups the backlight udev rules grant brightness
+writes to; `wheel` is what the disk-mounting polkit rule keys on. A user
+without them gets a desktop whose brightness keys do nothing.
 
 ### Doom Emacs
 
@@ -139,12 +290,8 @@ configuration, deployed by `environment.variables.DOOMDIR`, so there is
 nothing to seed and nothing to drift. Doom's own mutable state stays in
 `~/.config/emacs` and `~/.local/share/doom`.
 
-The framework is a git checkout and stays imperative:
-
-```bash
-git clone https://github.com/doomemacs/core ~/.config/emacs
-~/.config/emacs/bin/doom install
-```
+The framework is a git checkout and stays imperative — that is the two-line
+bootstrap in [step 7](#7-finish-doom-emacs), run once and never again.
 
 Because `$DOOMDIR` is read-only, edit `doom/` here and rebuild rather than
 editing `~/.config/doom`. A rebuild that touches `doom/` gives `$DOOMDIR` a new
