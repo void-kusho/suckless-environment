@@ -60,6 +60,17 @@ The three PCI IDs are why `hardware.enableRedistributableFirmware` is not
 optional: AX201, Jefferson Peak and the Iris Xe GuC/HuC all load microcode
 at runtime.
 
+**The battery is worn** (read 2026-09-16): SAMSUNG "SR Real Battery",
+`charge_full` 2458 mAh of 3780 design — 65 % health, 734 cycles. It enters
+the constant-voltage taper at ~84 % (pack at 12.3–12.56 V, 4.1–4.19 V per
+cell), so the last sixth charges at a few hundred mA and any load turns
+the net negative while the EC still reports `Charging` — which is all
+slstatus' `+` means. The EC also carries Samsung's charge cap
+(`charge_control_end_threshold`, the `samsung-galaxybook` driver); it read
+80, raising it to 100 changed nothing measurable, and the value persists
+in firmware, so it is not host configuration. USB-C `port0` has the laptop
+as the *source*, feeding the monitor or hub out of the charger's budget.
+
 **How it is built.** `/etc/nixos` is a symlink to the clone at
 `/home/void/suckless-environment`. `nixos-rebuild` implies `--flake /etc/nixos`
 when `/etc/nixos/flake.nix` exists and picks `nixosConfigurations.<hostname>`,
@@ -320,6 +331,12 @@ stopped being what the repository described.
   root-sized GL window measured 60 swaps/s, a DP-1-sized one 180, and with
   the panel shrunk by one pixel (`--scale-from 1919x1079`) the root-sized
   one jumped to 180 — proof of the tie, and a hack not taken. Decision 8.
+- **"The battery says charging and goes down."** True, and not software:
+  see the battery paragraph under the reference machine. Ruled out in
+  order — the 80 % EC cap (raised to 100, same 50–550 mA), the bar (it
+  prints the kernel's `status`), `battery-notify` (it only speaks at Low
+  and Critical). Left standing: a 65 % battery in CV taper from 84 %, and
+  a charger budget shared with whatever `port0` is powering.
 - **FreeSync on DP-1 could not engage, and no option would have made it.**
   `VariableRefresh` on, `_VARIABLE_REFRESH` on the window, nothing
   redirecting it — `VRR_ENABLED = 0` anyway. Xorg's Present page-flips only a
