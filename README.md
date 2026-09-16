@@ -9,6 +9,16 @@ The whole desktop sits behind one toggle:
 programs.suckless-environment.enable = true;
 ```
 
+## At a glance
+
+| | |
+|---|---|
+| `nix flake check` | the gate — builds every tool, the VM, the reference machine, the module and the template |
+| `nix run .#vm` | the desktop in QEMU, no disk, nothing installed |
+| `sudo nixos-rebuild switch` | rebuild the reference machine; `/etc/nixos` is a symlink to this clone |
+| `nix flake init -t .#laptop` | an `/etc/nixos` for a *different* machine |
+| `nixosModules.default` / `.laptop` | the desktop alone / the desktop plus this chipset, for your own configuration |
+
 ## Try it in QEMU
 
 No installation, no disk, nothing to clean up afterwards:
@@ -56,25 +66,45 @@ fake disk lives in the check and never in the thing being checked —
 
 ## Rebuild the reference machine
 
-The laptop this was written on is in here, whole:
+The laptop this was written on is `hosts/nixos-btw/`: disks, bootloader,
+user, locale, monitor layout and home-manager applications. It is a host,
+not a module — nobody imports it, so its UUIDs leak nowhere.
+
+On that laptop `/etc/nixos` is a **symlink to this clone**, and nothing else:
 
 ```bash
-sudo nixos-rebuild switch --flake /path/to/this/repo#nixos-btw
+sudo ln -sfn /home/void/suckless-environment /etc/nixos    # once
 ```
 
-`hosts/nixos-btw/` is its disks, bootloader, user, English-with-a-Japanese-
-boot-entry locale, monitor layout and home-manager applications. Nothing
-about it lives in `/etc/nixos` any more, and nothing about it leaks into
-`nixosModules.laptop`, which is what everyone else imports and which still
-has no disk in it.
+`nixos-rebuild` implies `--flake /etc/nixos` whenever `/etc/nixos/flake.nix`
+exists and picks the configuration named after the hostname, so the daily
+command has no arguments:
 
-Its `hardware-configuration.nix` is a snapshot, true until the disks are
-reformatted. After a reinstall:
+```bash
+sudo nixos-rebuild switch
+```
+
+It builds the same store path as `sudo nixos-rebuild switch --flake .#nixos-btw`
+from inside the clone; use whichever is nearer.
+
+Why a symlink and not a small flake that imports this one: a flake in
+`/etc/nixos` with `suckless-env = git+file:///…` as an input sees only
+*committed* work, and only moves on `nix flake update`. That is exactly what
+the machine had, and it ran nine days behind the repository — with an OBS
+fix and a nixpkgs bump sitting in a clone it never read — before anyone
+noticed. A symlink has no lock file to go stale.
+
+Two files in `hosts/nixos-btw/` are generated on the machine and copied in,
+never hand-edited. `hardware-configuration.nix` is true until the disks are
+reformatted; after a reinstall:
 
 ```bash
 nixos-generate-config --show-hardware-config \
   | nixfmt > hosts/nixos-btw/hardware-configuration.nix
 ```
+
+`autostart.sh` is the monitor layout, installed into `~/.config/suckless/` by
+an activation script on every switch — edit it here, not there.
 
 **Installing on a different machine? Do not copy this host** — its UUIDs are
 not yours. Use the walkthrough below, which writes an `/etc/nixos` with no
@@ -397,7 +427,7 @@ TUI where one exists, GUI only where it does not:
 | Bluetooth | `bluetuith` | TUI: pairing (`blueman-manager` is the GUI) |
 | Input methods | `fcitx5-configtool` | GUI: engines and switch keys |
 | Theme | `lxappearance` | GUI: GTK theme, icons, cursor, UI font |
-| Monitors | `arandr` | GUI: writes an `xrandr` line for `autostart.sh` |
+| Monitors | `arandr`, `vrr` | GUI that writes an `xrandr` line for `autostart.sh`; and [FreeSync](#the-monitors) |
 | CPU profile | `Super+p` | `dmenu-cpupower` |
 | Disks | Thunar | click it in the sidebar; udisks2 mounts it |
 
@@ -472,6 +502,44 @@ Machine-specific session setup — monitor layout, pointer warp — is
 module never writes it: it is the host's, and `hosts/nixos-btw/autostart.sh`
 is installed into `$HOME` by an activation script so that even this piece of
 state is declarative for the one machine that has an opinion about it.
+
+### The monitors
+
+The reference machine drives two: its own panel and an **AOC 27G4** on DP-1.
+What the AOC can do, and what an X11 session gets out of it:
+
+| the monitor offers | X11 uses | where |
+|---|---|---|
+| 1920×1080 at 180 Hz | **yes**, always | `hosts/nixos-btw/autostart.sh` |
+| FreeSync 48–180 Hz | **yes, only with DP-1 as the sole output** | `vrr on` |
+| 10 bits per colour | the link may negotiate 10 bpc (`max bpc: 12`); the X framebuffer stays 8-bit | — |
+| HDR10 | no — X11 has no HDR path; this needs a Wayland compositor | — |
+
+**FreeSync needs one monitor, and this is a property of Xorg, not of this
+configuration.** Three things have to line up for variable refresh on X11:
+the driver must allow it (`Option "VariableRefresh" "true"`, set in
+`hosts/nixos-btw/default.nix`), the window must be unredirected (picom's
+`unredir-if-possible` does this for any fullscreen window), and the server
+must **page-flip** the window rather than copy it. Present, the extension
+that flips, only does so for a window that covers the *whole root* — and
+with the laptop panel lit the root is 3840×1080, so a window that fills
+DP-1 is copied at a fixed 180 Hz and the CRTC's `VRR_ENABLED` never leaves 0.
+Measured with `glxgears -fullscreen` and `drm_info`: 0 with both outputs,
+1 the moment the panel is off.
+
+So the host ships a two-state switch:
+
+```
+vrr on      laptop panel off; DP-1 is the whole screen and a fullscreen
+            GL/Vulkan client page-flips with FreeSync
+vrr off     both monitors again, from autostart.sh
+vrr         which of the two
+```
+
+dwm moves the panel's windows onto DP-1 when it goes away and leaves them
+there when it comes back — park what you want to keep on DP-1 first. To see
+it engage: `nix run nixpkgs#drm_info | grep VRR_ENABLED` while a fullscreen
+game is running.
 
 ## Login
 

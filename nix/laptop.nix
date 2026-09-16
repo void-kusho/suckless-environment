@@ -62,9 +62,22 @@
 
   # iHD is the VA-API driver for Gen12: hardware video decode in Brave, mpv
   # and ffmpeg.
+  #
+  # vpl-gpu-rt is the QuickSync runtime on top of it. Anything that encodes
+  # through libvpl -- OBS's "QuickSync H.264/HEVC" encoder, ffmpeg's
+  # h264_qsv -- asks the dispatcher for a GPU runtime, and nixpkgs patches
+  # libvpl to look in /run/opengl-driver/lib, which is where this list
+  # lands. Without it the plugin still loads and still lists the encoder;
+  # it is only "Start Recording" that fails, with MFX_ERR_NOT_FOUND in the
+  # OBS log and nothing on screen but "Starting the output failed". iHD
+  # alone gives VA-API, which is a different entry point to the same
+  # silicon: the FFmpeg VAAPI encoders work with or without this line.
   hardware.graphics = {
     enable = true;
-    extraPackages = with pkgs; [ intel-media-driver ];
+    extraPackages = with pkgs; [
+      intel-media-driver
+      vpl-gpu-rt
+    ];
   };
 
   boot.kernelModules = [ "kvm-intel" ];

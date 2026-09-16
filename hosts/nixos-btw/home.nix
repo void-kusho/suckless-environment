@@ -49,7 +49,23 @@
     nodejs
     bun
 
+    # And the C side of the same argument: the compiler, make, pkg-config
+    # and the one library a current project links against. Not the system's
+    # -- `nix shell nixpkgs#gcc' still works for a one-off -- but the user's.
+    gcc
+    gnumake
+    pkg-config
+    libpcap
+    python3
+
     libreoffice
+
+    # Everyday tools the desktop does not ship -- it has Emacs and no
+    # process viewer at all -- and which are one person's habits, not the
+    # environment's.
+    vim
+    gh
+    btop
 
     # The Steam CLIENT is not here. It is `programs.steam' in ./default.nix,
     # the SYSTEM module -- see the comment there for why it cannot be a user

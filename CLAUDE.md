@@ -214,6 +214,45 @@ itself, which spawns `dmenu-session` reliably, and the `-m` argument shared
 by the four dmenu commands — `spawn()` rewrites `dmenumon` for all of them,
 so the menus do follow the focused monitor.
 
+## What the machine said when the repository was finally asked
+
+Three findings from one afternoon, 2026-09-16. They share a shape: every
+claim above had been checked against the repository, and the machine had
+quietly stopped being what the repository described.
+
+* **`/etc/nixos` was not a pointer.** It was a complete flake of its own,
+  pulling this repository as `suckless-env = git+file:///home/void/...`,
+  locked at `751624e` -- three commits before the one that moved the host
+  in here. A `git+file` input sees committed work only, and only moves on
+  `nix flake update`, so generations 22 to 24 were built from that flake,
+  with its own nixpkgs three days older, and the owner kept editing
+  `/etc/nixos/configuration.nix` and `home.nix` directly because that was
+  the file the machine read. Nothing was wrong on either side; there were
+  simply two of them. The drift was ported into `hosts/nixos-btw/` (VRR,
+  `nix.gc`, `nix.optimise`, eight packages) with `nix store diff-closures`
+  as the proof that the switch loses nothing, and `/etc/nixos` becomes a
+  symlink to the clone (the one-line command is in the README, under
+  "Rebuild the reference machine") -- no second lock file left to go stale.
+* **OBS could not start an output.** The auto-config wizard picked
+  QuickSync H.264, and every recording died with `MFX_ERR_NOT_FOUND`.
+  `intel-media-driver` gives VA-API; QuickSync is a second stack on top of
+  it, and its GPU runtime, `vpl-gpu-rt`, was not installed. The plugin
+  loads and lists the encoder regardless, which is why the wizard chose
+  it. nixpkgs patches `libvpl` to look in `/run/opengl-driver/lib`, so the
+  fix is the package in `hardware.graphics.extraPackages`, in
+  `nix/laptop.nix` -- a chipset fact. Proven before the switch with
+  `ffmpeg -c:v h264_qsv` and `ONEVPL_SEARCH_PATH` pointed at the built
+  runtime: encodes with it, `Device creation failed` without.
+* **FreeSync on DP-1 could not engage, and no option would have made it.**
+  `Option "VariableRefresh" "true"` was set, the window carried
+  `_VARIABLE_REFRESH`, picom had unredirected it, and the CRTC read
+  `VRR_ENABLED = 0` anyway. Xorg's Present only page-flips a window that
+  covers the whole root, and with eDP-1 lit the root is two monitors wide.
+  Off with the panel, same window, `VRR_ENABLED = 1`. So the host ships
+  `vrr on` / `vrr off`, which is the only lever X11 has; the README's
+  monitor section says what the AOC 27G4 offers and which of it a session
+  can use.
+
 ## Running software this repository did not build
 
 Three of the owner's own programs would not start — a Tauri app built on the
@@ -355,7 +394,9 @@ file read-only and giving up the configtool.
    with its real UUIDs, systemd-boot, the user, the English/Japanese
    specialisation, the monitor layout, and home-manager for the user's
    applications. `sudo nixos-rebuild switch --flake .#nixos-btw` rebuilds
-   this laptop from a clone, and `/etc/nixos` holds nothing but a pointer.
+   this laptop from a clone, and `/etc/nixos` is a symlink to that clone --
+   a *symlink*, not a flake that imports this one; the section below on
+   what the machine said explains why that distinction cost nine days.
 
    This is a second reversal, and both earlier positions were right about
    something. The first version of `hosts/laptop.nix` was deleted because a
@@ -426,8 +467,9 @@ file read-only and giving up the configtool.
 `flake.nix` is the whole API, and every one of these is meant to be used:
 
 * `nixosConfigurations.nixos-btw` — the reference machine itself.
-  `sudo nixos-rebuild switch --flake .#nixos-btw` rebuilds this laptop from
-  a clone; `/etc/nixos` holds a pointer and nothing else. See decision 2.
+  `sudo nixos-rebuild switch` rebuilds this laptop, because `/etc/nixos` is
+  a symlink to the clone and `nixos-rebuild` implies `--flake /etc/nixos`
+  with the hostname as the attribute. See decision 2.
 * `nix run .#vm` — boot the test host in QEMU, no disk, no result symlink.
   A VM owns its virtual disk, so declaring one costs nothing.
 * `nix flake check` — builds all five tools, the VM, the whole `nixos-btw`
