@@ -252,6 +252,7 @@ rm -rf ~/.config/doom     # dead weight — see Doom Emacs below
 | Black screen or a TTY after boot | Pick the previous generation in the boot menu, or `sudo nixos-rebuild switch --rollback`. |
 | The greeter rejects the password | The console keymap is `br-abnt2`. Not Brazilian? Set `console.keyMap` and `services.xserver.xkb.layout` in your host — both are `mkDefault` in the module for this reason. |
 | The keyboard "goes English" while typing | fcitx5 rewrote `~/.config/fcitx5/profile` to `DefaultIM=mozc`, routing every key through the Japanese engine. `rm` that file and log in again; the shipped seed keeps mozc on `Ctrl+Alt+Space`. |
+| No microphone or no sound in Brave, Spotify, Obsidian, Meet — right after a rebuild | The switch restarted PipeWire (any rebuild that touches glibc restarts every user service), and Chromium/Electron apps do not reconnect to a new audio server. Close the app completely (`pkill -f brave`) and reopen it. A bluetooth headset exposes its microphone only in the HFP/Handsfree profile, not A2DP — `pavucontrol` → Configuration. |
 | A binary built elsewhere will not start | It names the library: `error while loading shared libraries: libfoo.so.1`. Add the package to `programs.nix-ld.libraries` and rebuild. |
 | Not sure it will work | `nix flake check` in a clone, before `switch`. |
 
