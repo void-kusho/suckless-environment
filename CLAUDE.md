@@ -1,23 +1,49 @@
-# CLAUDE.md — project context
+# CLAUDE.md — project context, `nixos` branch
 
-Context for the **`nixos`** branch. `README.md` is the manual; this is the *why*.
+`README.md` is the manual. This file is the *why*, and the record of what
+was found broken, how, and what fixed it. Every claim here was checked
+against the reference machine below, not against the repository.
 
 ## What this is
 
-The X11 suckless desktop — dwm, st, dmenu, slstatus and a C utility suite —
-**for NixOS**, declaratively. Sibling branches: `guix` (the same desktop on
-GNU Guix), `origin/artix` (the imperative Arch/Artix build, and the machine
-this all targets). `guix-wayland` is an abandoned dwl port.
+The X11 suckless desktop — dwm, st, dmenu, slstatus, a C utility suite,
+Doom Emacs — for **NixOS**, declaratively. Sibling branches: `guix` (same
+desktop on GNU Guix), `origin/artix` (the imperative Arch/Artix build, and
+the machine this all targets), `guix-wayland` (an abandoned dwl port).
 
-Two standing constraints:
+## Rules
 
-* **Emacs (Doom) is the editor.** No Neovim, no Helix, no Yazi.
-* **Minimal.** One entry point per concern, nothing in the system
-  configuration that `nix shell` can provide per project.
+- **Talk to the owner in Portuguese. Write code, comments and docs in English.**
+- **Doom Emacs is the editor.** No Neovim, no Helix, no Yazi.
+- **Minimal.** One entry point per concern. Nothing in the system that
+  `nix shell nixpkgs#…` can provide per project — no compilers, no language
+  servers (decision 4). The *user's* home-manager list is the user's call.
+- **Nothing that fails `nix flake check` reaches `nixos-rebuild switch`.**
+  `nixfmt $(git ls-files '*.nix')` is the formatting check; `nix fmt` is
+  `nixfmt-tree`, walks past this tree, and exits non-zero on unrelated files.
+- **Tokyo Night:** `#1a1b26` `#a9b1d6` `#414868` `#7aa2f7` `#565f89` `#f7768e`
+  `#9ece6a` `#e0af68` `#bb9af7` `#7dcfff`.
+- **Session state** (monitor layout, pointer warp) lives in
+  `~/.config/suckless/autostart.sh`, never in `nix/`. For the reference
+  machine that file is `hosts/nixos-btw/autostart.sh`, installed by activation.
+- **`utils/` carries no `config.h` on this branch.** The backends —
+  `powerprofilesctl`, `betterlockscreen`, `systemctl` — are in the `.c`
+  files, which is why `services.power-profiles-daemon` is on. `.gitignore`
+  blocks a `config.h`; do not copy the `guix` branch's. Where `origin/artix`
+  reads `loginctl`, this branch reads `systemctl`: elogind and systemd
+  disagree about who owns the power verbs.
+- **Parity with `origin/artix` is byte-identical** for `dwm/config.h`,
+  `st/config.h`, `dmenu/config.h`, `slstatus/config.h`, `dunst/dunstrc`,
+  `fcitx5/profile`, `fcitx5/config`. nixpkgs carries every font and tool the
+  Arch build uses, so unlike `guix` nothing had to diverge.
+- **Documents describe the state that exists.** A claim about the machine
+  ("`/etc/nixos` is a pointer") is checked on the machine before it is
+  written, and written in the tense that is true.
 
 ## The reference machine
 
-Read live, 2026-09-05. Every parity claim is checked against **this**.
+Read live. Reinstalled 2026-09-05; the UUIDs in
+`hosts/nixos-btw/hardware-configuration.nix` are the ones that produced.
 
 ```
 Intel i5-1135G7 (TigerLake-LP), 8 threads, 16 GiB, NVMe
@@ -25,481 +51,291 @@ Iris Xe Graphics                          [8086:9a49]
 Intel Wi-Fi 6 AX201                       [8086:a0f0]
 Intel Bluetooth 9460/9560 Jefferson Peak  [8087:0aaa]
 Intel HD Audio, 500 series                [8086:a0c8]
-BAT1 · intel_backlight · keyboard br/abnt2
-eDP-1 1920x1080@60 at 0x0 ; DP-1 1920x1080@180 at 1920x0 (primary)
+BAT1 · intel_backlight · keyboard br/abnt2 · console br-abnt2
+eDP-1 1920x1080@60 at 0x0 (BOE, 8-bit, no VRR)
+DP-1  1920x1080@180 at 1920x0, primary — AOC 27G4: FreeSync 48–180, 10 bpc, HDR10
 ```
 
-The partitions are recorded, in
-`hosts/nixos-btw/hardware-configuration.nix` -- the file
-`nixos-generate-config` wrote on this machine, snapshotted into the
-repository so `nixosConfigurations.nixos-btw` is the machine rather than a
-description of it. They were kept out for a while, on the grounds that the
-machine was about to be reinstalled and a stale UUID is a trap that looks
-like documentation. That reinstall happened on 2026-09-05; these are the
-UUIDs it produced. The refresh command is at the top of the file, and
-decision 2 has the rest of the argument.
+The three PCI IDs are why `hardware.enableRedistributableFirmware` is not
+optional: AX201, Jefferson Peak and the Iris Xe GuC/HuC all load microcode
+at runtime.
 
-The *modules* still carry no disk. That is the part that was never in
-question: `nixosModules.laptop` is imported by other people's
-configurations, and a host is not.
+**How it is built.** `/etc/nixos` is a symlink to the clone at
+`/home/void/suckless-environment`. `nixos-rebuild` implies `--flake /etc/nixos`
+when `/etc/nixos/flake.nix` exists and picks `nixosConfigurations.<hostname>`,
+so the daily command is `sudo nixos-rebuild switch`, and it builds the same
+store path as `--flake .#nixos-btw`. `checks.nixos-btw` builds the whole host
+— home-manager, disks and all — so `nix flake check` fails when *this
+machine* stops building, not a stand-in.
 
-The three PCI IDs above are the reason `hardware.enableRedistributableFirmware`
-is not optional here -- see below.
+**What the host holds** (`hosts/nixos-btw/`): systemd-boot on the existing
+ESP; the user (`wheel networkmanager video input`); English default with a
+`japanese` specialisation (the module's default inverted, `mkForce` on the
+whole set); the monitor layout; VRR on DP-1 and the `vrr` command; weekly
+`nix.gc` (7 d) and `nix.optimise`; `programs.steam` at the system level
+(it does not exist in home-manager, and only the system module can set
+`enable32Bit`, open the firewall and install the FHS wrapper); a five-name
+`allowUnfreePredicate` (`spotify obsidian steam steam-unwrapped steamcmd`);
+home-manager (`useGlobalPkgs`, `useUserPackages`) for the user's
+applications and toolchains.
 
-**Parity is byte-identical**: `dwm/config.h`, `st/config.h`,
-`dmenu/config.h`, `slstatus/config.h`, `dunst/dunstrc`, `fcitx5/profile` and
-`fcitx5/config` all match `origin/artix` exactly. Unlike the `guix` branch,
-nothing here had to diverge — nixpkgs carries every font and tool the Arch
-build uses.
+**Refresh the disks after a reinstall:**
+`nixos-generate-config --show-hardware-config | nixfmt > hosts/nixos-btw/hardware-configuration.nix`.
 
-## What was broken, and how it was found
+## What owns what
 
-Nix is runnable here even without a system install: there is a working
-`nix` inside `~/.nix-portable/store`, and it runs under that bundle's own
-`bwrap`. That makes `nix eval`, `nix build` and `nix flake check` available,
-which is how all of the following came out — none of it is visible by
-reading.
+| Path | Owns | Never contains |
+|---|---|---|
+| `nix/module.nix` | the desktop: `programs.suckless-environment.{enable, extraPackages, compositor.enable, wallpaper}`, session daemons, fonts, fcitx5/mozc, Ly, nix-ld libraries, xdg files | a disk, a user, a hostname |
+| `nix/laptop.nix` | the chipset: firmware, microcode, `modesetting`, iHD (VA-API), `vpl-gpu-rt` (QuickSync), thermald, fstrim, fwupd, flatpak + GTK portal | same |
+| `hosts/nixos-btw/` | this machine, whole | anything anyone imports |
+| `hosts/vm.nix` | the QEMU host: autologin, `startx`, Ly off, `grab-on-hover` | — |
+| `templates/laptop/` | a teaching copy of the host with the disks removed, for `nix flake init -t .#laptop` | UUIDs |
 
-* **`hosts/laptop.nix` could not build at all.** It set
-  `services.flatpak.enable` with no portal, and NixOS asserts on exactly
-  that: *"To use Flatpak you must enable XDG Desktop Portals"*. The host was
-  never in `nixosConfigurations`, so nothing ever evaluated it. It is now a
-  complete host — real UUIDs, systemd-boot on the existing ESP, the Intel
-  platform bits — and it is wired into the flake, so `nix flake check`
-  covers it.
-* **Three runtime dependencies had no provider.** Extracted from what the
-  session actually invokes, then matched against the *effective*
-  `systemPackages` (189 entries, including everything NixOS's own modules
-  add) rather than the list in `module.nix`:
-  - `pamixer` — `slstatus/config.h:76` shells out to it; the volume segment
-    of the bar was dead.
-  - `libnotify` — `battery-notify` and `brightness-notify` call
-    `notify-send`, which is not part of the `dunst` daemon.
-  - `gtk3` — `dmenu_run_desktop` pipes into `gtk-launch`, so `Super+d`
-    listed applications and launched none.
-  `xrandr` and `procps`, also suspected, turned out to come from NixOS's own
-  `services.xserver` module.
-* **Thunar was half-configured.** It was a bare package in `systemPackages`,
-  which gives a Thunar with no thumbnails, no trash and no removable media.
-  It now goes through `programs.thunar` with `services.gvfs` and
-  `services.tumbler` — the module is what registers its D-Bus services.
-* **nixpkgs was pinned 239 days back**, on a release that had gone end of
-  life. Moving to `nixos-26.05` surfaced six renames and removals that the
-  stale pin was hiding: `noto-fonts-emoji` → `noto-fonts-color-emoji`,
-  `poppler_utils` → `poppler-utils`, `neofetch` removed entirely, the whole
-  `xorg.*` set deprecated in favour of top-level `libx11` &c.,
-  `xfce.thunar-{archive-plugin,volman}` and `xfce.exo` moved to top level,
-  and `pkgs.system` → `pkgs.stdenv.hostPlatform.system`. Both hosts now
-  evaluate with zero warnings.
-
-## What booting it found that reading it could not
-
-`nix flake check` was green through every one of the following. All four
-came out of `pkgs.testers.runNixOSTest`: a headless VM that logs in on a
-TTY, runs `startx`, and then asserts on the live session. Building a
-configuration proves it evaluates; only booting proves it runs.
-
-* **The store shipped binaries compiled on Artix.** `src = ../dwm` copies the
-  *working tree*, and every vendored Makefile builds in place, so a `dwm`
-  left over from a `make` on this machine was copied into the store beside
-  its sources. GNU make then found the target newer than its prerequisites,
-  skipped the compile, and `make install` installed the foreign binary. It
-  asks for `/lib64/ld-linux-x86-64.so.2`; NixOS answers with a stub that
-  refuses. The session died at `exec dwm` with *"Could not start dynamically
-  linked executable"* — dwm, slstatus and battery-notify all of them, and
-  `utils/brightness-notify/brightness-notify` was committed to git, so a
-  clean clone was poisoned too.
-
-  Three layers now: `preBuild = "make clean"` in `nix/lib.nix` (every
-  vendored Makefile has a `clean`, and none of them touches `config.h`), a
-  `postFixup` that fails the build if any installed binary asks for an
-  interpreter outside the store, and `.gitignore` entries for all eleven
-  build products. The committed binary is gone.
-* **fcitx5 and mozc had never worked.** `i18n.inputMethod.type` was set
-  without `enable`, and the pair replaced the old `enabled = "fcitx5"`
-  string: `type` alone installs nothing and exports none of
-  `GTK_IM_MODULE` / `QT_IM_MODULE` / `XMODIFIERS`. There was no `fcitx5`
-  binary on the system at all, and the launcher called `${pkgs.fcitx5}` —
-  the bare package, without mozc — rather than
-  `config.i18n.inputMethod.package`. `mozc_server` runs in the session now.
-* **The launcher's idempotency guard was a no-op for most of it.**
-  `pgrep -x "${1##*/}"` matches a process *name*, and a package built with
-  makeWrapper runs as `.dunst-wrapped` — with `comm` capped at 15 characters,
-  flameshot is `.flameshot-wrap`. Four of the six daemons are wrapped, so the
-  guard never matched any of them. It matches the full store path now; the
-  wrapper keeps `argv[0]`, so the path is still in the cmdline. This was
-  only visible in a `ps` taken inside a running session.
-* **No firmware at all.** A hand-written hardware block does not import
-  `installer/scan/not-detected.nix`, which is where `nixos-generate-config`
-  turns `hardware.enableRedistributableFirmware` on. The `firmware`
-  derivation in the closure measured **5.2 KiB** — an empty merge directory.
-  On this machine that is no WiFi (AX201 iwlwifi), no bluetooth (Jefferson
-  Peak `ibt-*`) and no Iris Xe GuC/HuC. It is 808.6 MiB now, with the
-  `iwlwifi-QuZ-a0-*.ucode` this adapter loads.
-
-Smaller, from the same session: the TTYs had no keymap and stayed on US
-while X had br/abnt2 — and with `startx` as the login flow, the password
-prompt is a TTY (`console.keyMap = "br-abnt2"`). `blueman` was a bare
-package with no `services.blueman`, so it could not pair or trust anything.
-udisks2 classifies a fixed second drive as *system internal*, whose polkit
-action is `auth_admin_keep`, so mounting the HD from Thunar asked for a
-password on every login; a polkit rule now lets `wheel` do it silently.
-
-## Two things that made a working VM look broken
-
-Both were reported as "the flake did not work", and neither is a flake
-problem:
-
-* **No wallpaper, anywhere.** `nix/module.nix` delegated it to
-  `~/.config/suckless/autostart.sh` — a file nothing in this repository ever
-  created, and which does not exist on the reference machine either (its
-  `dwm-start` hardcodes `feh`). Every fresh install came up on a bare root
-  window. The image is vendored in `wallpapers/` now and painted by
-  `programs.suckless-environment.wallpaper`, before the autostart hook runs
-  so a hook can still override it.
-* **Every keybinding was swallowed by the host.** The guest's MODKEY is Super
-  and so is the host's dwm, and QEMU's GTK display does not grab the keyboard
-  by default: `Super+Return` opened a terminal on the *host*. The VM was
-  fine; nothing in it could be reached. `hosts/vm.nix` now passes
-  `-display gtk,grab-on-hover=on`.
-
-The VM also boots straight into dwm (autologin + `startx` from
-`loginShellInit`): a throwaway host that makes you type a password proves
-nothing, and `/etc/profile` sources `set-environment` before that hook, so
-PATH is already correct when X starts.
-
-## What driving the installed session found
-
-Three failures reported from the reference machine — the session menu did
-nothing, and Thunar could not open a terminal. All three were found by
-sending synthetic keys into the live dwm with `xdotool` and reading what
-the session actually spawned; none of them is visible in a build.
-
-* **`loginctl poweroff` and `loginctl reboot` do not exist.** They are
-  *elogind* verbs — real on `origin/artix`, where these `.c` files come
-  from, and absent from systemd's loginctl, which knows only session, user
-  and seat commands. `exec_detach` runs them in a detached child whose
-  stderr goes nowhere, so "Unknown command verb" was never printed and the
-  menu entry looked inert. `dmenu-session` calls `systemctl` now; logind
-  answers `CanPowerOff` and `CanReboot` with "yes" for an active local
-  session, so no password is involved either way.
-* **`exec_wait` raced the SIGCHLD handler it installs.** `sigchld_handler`
-  reaps *every* child with `waitpid(-1, WNOHANG)`, so for anything that
-  exits as fast as a `pgrep` it won the race, and `exec_wait`'s own
-  `waitpid` then failed with ECHILD leaving `status` uninitialized. The one
-  caller that reads the value is the "is a lock screen already up?" guard
-  in `action_lock`, which therefore skipped locking whenever the stack
-  garbage happened to be zero. SIGCHLD is blocked around the fork/wait now,
-  and restored in the child before exec.
-* **Thunar could not run anything in a terminal, ever.** exo 4.20 hands
-  "run this in the preferred terminal" to `xfce4-mime-helper`, which ships
-  only in `xfce4-settings` — a 1.5 GiB closure, so it is deliberately not
-  installed. Without it exo takes a fallback path that spawns
-  `<binary> "<the entire command line as one argv entry>"`: st reads that
-  string as argv[0] and dies with *"child exited with status 1"*, which is
-  what the error dialog was reporting. `st-exo-helper` in `nix/module.nix`
-  turns that one argument back into `st -e sh -c`.
-
-  The same fallback explains two dead entries in the old `helpers.rc`. It
-  resolves values with `g_find_program_in_path`, so they are *binary
-  names*, not desktop-file ids: `WebBrowser=brave-browser` never matched
-  anything (the binary is `brave`). And it reads `g_get_user_config_dir()`
-  and nothing else — not `XDG_CONFIG_DIRS`, so the `/etc/xdg` copy the
-  module installed was never opened by anyone. A `systemd.user.tmpfiles`
-  rule links `~/.config/xfce4/helpers.rc` at it; `L` (not `L+`) leaves a
-  real file alone, which is how a user still overrides it.
-
-What was *not* broken, having been suspected: the `Ctrl+Alt+Delete` binding
-itself, which spawns `dmenu-session` reliably, and the `-m` argument shared
-by the four dmenu commands — `spawn()` rewrites `dmenumon` for all of them,
-so the menus do follow the focused monitor.
-
-## What the machine said when the repository was finally asked
-
-Three findings from one afternoon, 2026-09-16. They share a shape: every
-claim above had been checked against the repository, and the machine had
-quietly stopped being what the repository described.
-
-* **`/etc/nixos` was not a pointer.** It was a complete flake of its own,
-  pulling this repository as `suckless-env = git+file:///home/void/...`,
-  locked at `751624e` -- three commits before the one that moved the host
-  in here. A `git+file` input sees committed work only, and only moves on
-  `nix flake update`, so generations 22 to 24 were built from that flake,
-  with its own nixpkgs three days older, and the owner kept editing
-  `/etc/nixos/configuration.nix` and `home.nix` directly because that was
-  the file the machine read. Nothing was wrong on either side; there were
-  simply two of them. The drift was ported into `hosts/nixos-btw/` (VRR,
-  `nix.gc`, `nix.optimise`, eight packages) with `nix store diff-closures`
-  as the proof that the switch loses nothing, and `/etc/nixos` becomes a
-  symlink to the clone (the one-line command is in the README, under
-  "Rebuild the reference machine") -- no second lock file left to go stale.
-* **OBS could not start an output.** The auto-config wizard picked
-  QuickSync H.264, and every recording died with `MFX_ERR_NOT_FOUND`.
-  `intel-media-driver` gives VA-API; QuickSync is a second stack on top of
-  it, and its GPU runtime, `vpl-gpu-rt`, was not installed. The plugin
-  loads and lists the encoder regardless, which is why the wizard chose
-  it. nixpkgs patches `libvpl` to look in `/run/opengl-driver/lib`, so the
-  fix is the package in `hardware.graphics.extraPackages`, in
-  `nix/laptop.nix` -- a chipset fact. Proven before the switch with
-  `ffmpeg -c:v h264_qsv` and `ONEVPL_SEARCH_PATH` pointed at the built
-  runtime: encodes with it, `Device creation failed` without.
-* **FreeSync on DP-1 could not engage, and no option would have made it.**
-  `Option "VariableRefresh" "true"` was set, the window carried
-  `_VARIABLE_REFRESH`, picom had unredirected it, and the CRTC read
-  `VRR_ENABLED = 0` anyway. Xorg's Present only page-flips a window that
-  covers the whole root, and with eDP-1 lit the root is two monitors wide.
-  Off with the panel, same window, `VRR_ENABLED = 1`. So the host ships
-  `vrr on` / `vrr off`, which is the only lever X11 has; the README's
-  monitor section says what the AOC 27G4 offers and which of it a session
-  can use.
-
-## Running software this repository did not build
-
-Three of the owner's own programs would not start — a Tauri app built on the
-old Artix install, an UPBGE build, and a Flutter AppImage. None of it was a
-loader problem. `programs.nix-ld` was already on and already answering
-`/lib64/ld-linux-x86-64.so.2`, which is why `~/.opencode/bin/opencode` — a
-foreign ELF that needs nothing past libc — ran fine all along.
-
-nix-ld hands a program only the libraries it is *told* to, and the stock list
-is libc, libstdc++, zlib, openssl, curl and systemd. So all three stopped one
-step past the loader, each naming the first thing it wanted:
-
-| program        | died on                    | really needed                     |
-| -------------- | -------------------------- | --------------------------------- |
-| the Tauri app  | `libgdk-3.so.0`            | gtk3, webkitgtk_4_1, libsoup_3     |
-| UPBGE          | `libX11.so.6`, `libSM.so.6`| the X11 set, GL, pulse, wayland   |
-| the AppImage   | `libepoxy.so.0`            | libepoxy                          |
-
-The AppImage is a *different mechanism with the same shape*, and that is the
-part worth remembering: `appimage-run` runs inside its own FHS sandbox whose
-library set has nothing to do with nix-ld's. The fix for it is
-`programs.appimage.package`, not `programs.nix-ld.libraries` — putting
-libepoxy in the latter would have changed nothing.
-
-Both lists live in `nix/module.nix` now, and together they cost **238 KiB**
-of closure, measured against the same system without them. The desktop is
-already GTK and X11 — Thunar, Brave, dunst and lxappearance drag in the same
-gtk3, cairo, pango, fontconfig, Xlib, and webkitgtk was in the store too — so
-the libraries were paid for either way. Only nix-ld itself is new.
-
-Listing a *direct* dependency is enough. Anything reached through nix-ld
-carries its own RUNPATH into the store, so the transitive half resolves
-without being named — which is why a list this short covers a 300 MB Blender.
-
-This does not reverse decision 4. Nothing here compiles anything; it lets a
-binary that already exists run. `nix shell nixpkgs#gcc` is still how you
-build one.
-
-## Timezone, language and theme
-
-None of the three were configured at all, so the system ran in UTC, with
-NixOS's stock `en_US.UTF-8` and no GTK theme.
-
-* **The system is Japanese**, with `LANGUAGE=ja:en` so anything without a
-  Japanese translation falls back to English rather than to the C locale —
-  `LANG` alone does not do that. `ja_JP`, `en_US`, `pt_BR` and `C` are all
-  generated, and `specialisation.english` is a whole second system built
-  alongside, so switching needs no rebuild.
-* The interface font is Noto Sans CJK JP: `noto-fonts` (Latin only) was not
-  enough once the UI stopped being English.
-* **There is deliberately no GUI for the language.** `/etc/locale.conf` is a
-  store symlink, so `localectl set-locale` cannot write to it; on NixOS the
-  declarative option is the only honest answer, and pre-generating the
-  locales is what makes it cheap.
-* The **theme** does get a GUI: `lxappearance` (GTK theme, icons, cursor, UI
-  font) and `qt6Packages.fcitx5-configtool` (input methods). The module ships
-  `/etc/xdg/gtk-3.0/settings.ini` with Arc-Dark, Papirus-Dark, Adwaita
-  cursors and Noto Sans 11 — a user `~/.config/gtk-3.0/settings.ini`, which
-  is exactly what lxappearance writes, overrides it.
-* `noto-fonts` was added for that interface font: the module previously
-  installed only Iosevka, CJK and emoji, so GTK apps had no sans to fall back
-  to.
-* The reference machine's icon set (`TokyoNight-SE`) and cursors
-  (`DeppinWhite-cursors`) are personal downloads in `~/.local/share/icons`.
-  They are user state and are not packaged here; they keep working if that
-  directory comes along.
-
-## Configuration that was in $HOME and nowhere else
-
-Two of these were only found because they were reported missing, which is the
-pattern to watch: anything the reference machine has in `~/.config` and the
-repository does not.
-
-* `tmux/tmux.conf` — a substantial config (Tokyo Night Moon, `C-Space`
-  prefix, vi copy-mode through xclip, Alt navigation) that existed in **no
-  branch**. Now deployed by `programs.tmux`. The `guix` and `artix` branches
-  still lack it.
-* `wallpapers/sushi_original.png` — see above.
-* `thunar/uca.xml` — **Thunar ships no "Open Terminal Here" of its own.**
-  That entry in its context menu is a *custom action*, and the only copy of
-  it was in the reference machine's `~/.config/Thunar/uca.xml`. Every fresh
-  install came up with a file manager that could not open a terminal, and no
-  hint that anything was missing. It goes to `/etc/xdg/Thunar/uca.xml` now:
-  Thunar looks the file up with `xfce_resource_lookup`, which walks
-  `XDG_CONFIG_DIRS`, so unlike exo's `helpers.rc` this one needs no tmpfiles
-  rule. Editing the actions in Thunar's dialog writes the `~/.config` copy,
-  which then shadows it — the intended way to add your own.
-* The neofetch config turned out to be the stock file, with every value at
-  its default; nothing had been lost.
-
-Two small things went the other way — they were in the *installation* and
-belonged to the *desktop*, so they moved into `nix/module.nix` as defaults:
-`console.font = "Lat2-Terminus16"` (the kernel's built-in console font is
-ASCII, which is fine right up to the first "ç" at the Ly greeter) and
-`services.xserver.autoRepeatDelay/Interval` at 200/35, because navigating a
-tiling window manager is held keys and X's 660 ms default is felt.
-
-And one that is drift rather than a gap, recorded because it will happen
-again: **fcitx5 rewrites `~/.config/fcitx5/profile`** at runtime. The
-`/etc/xdg` copy this repository ships is a seed and nothing more, so the
-reference machine has drifted back to `DefaultIM=mozc` — the exact setting
-`fcitx5/profile` carries a comment against, because it routes ABNT2 through
-the Japanese engine and the keyboard "goes English". Deleting the user copy
-and re-logging is the fix; there is no declarative one, short of making the
-file read-only and giving up the configtool.
+When the host and the template drift, the host is right.
 
 ## Decisions
 
-1. **Doom Emacs replaces Helix**, and `$DOOMDIR` points into the store via
-   `environment.variables.DOOMDIR`. That is strictly better than the seed
-   wrapper Helix used: no first-run copy, no drift, nothing to re-seed. The
-   cost is that `~/.config/doom` is read-only — edit `doom/` and rebuild.
+1. **Doom Emacs, with `$DOOMDIR` in the store** (`environment.variables.DOOMDIR`
+   → `doom/`). No first-run copy, no drift, no re-seeding; the cost is a
+   read-only `~/.config/doom` — edit `doom/` and rebuild. Two things `doom
+   doctor` turned up: `doom install` writes `~/.config/doom` from Doom's
+   example templates regardless of `$DOOMDIR`, and the doctor then reports
+   "two private configs", naming them in a fixed order and calling the
+   *second* ignored — backwards here, because `doom-user-dir` short-circuits
+   on `$DOOMDIR`. `doom info` is the truth; the shadow directory is
+   byte-identical to `static/*.example.el` and safe to delete. And
+   `nerd-icons.el` asks for the family "Symbols Nerd Font Mono" by name, which
+   a patched Iosevka does not answer to: `nerd-fonts.symbols-only` is in
+   `fonts.packages` or every icon is tofu.
+2. **Modules describe a desktop and a chipset, never a disk; the repository
+   also carries one real host.** `nixosModules.{default,laptop}` have no
+   `fileSystems`, `swapDevices`, `boot.loader`, `users.users` or
+   `stateVersion`, because other people import them. `hosts/nixos-btw/` is
+   the exception, and nobody imports a host. This reversed two earlier
+   positions, each right about something: "a repository that ships a disk
+   hands its UUIDs to importers" (true — answered by keeping the *modules*
+   diskless) and "the machine is about to be reinstalled and a stale UUID is
+   a trap that looks like documentation" (true, and spent on 2026-09-05).
+3. **`hosts/minimal.nix` and `default.nix` are gone.** One template of the
+   machine, one interface for non-flake users.
+4. **Toolchains stay out of the system.** `nix shell nixpkgs#rust-analyzer`.
+   The user's home-manager list (rustc, zig, gcc, python3, nodejs…) is the
+   user's, not the machine's.
+5. **Ly is the display manager, `mkDefault true` in the module**, Tokyo
+   Night themed. It was only ever *detected* before. Ly's colours are
+   `0xAARRGGBB` where the top byte is an *attribute*, not alpha (`0x01` =
+   bold, as in upstream's `error_fg = 0x01FF0000`). Its clock is ASCII on
+   purpose — the console font has no CJK — and its password prompt uses the
+   **console** keymap, hence `console.keyMap = "br-abnt2"`. `hosts/vm.nix`
+   turns it off; the module hands `services.xserver.autorun` and the `startx`
+   pseudo-DM back when it goes off.
+6. **The installation is a flake template**, `templates/laptop/`: the
+   host's `/etc/nixos` with the disks removed — `flake.nix`,
+   `configuration.nix` (four `EDIT` markers), `home.nix`, `autostart.sh`.
+   `checks.install-template` builds it on `nixosModules.laptop` against a
+   throwaway root so it cannot rot unnoticed. It does not reopen decision 2:
+   nothing in it is *declared* by the repository; it is copied once and
+   owned by whoever copied it.
+7. **`/etc/nixos` is a symlink, not a flake that imports this one.** A
+   `git+file:` input sees committed work only and moves only on `nix flake
+   update`; that design ran the machine nine days behind the repository in
+   silence (see 2026-09-16 below). A symlink has no lock file to go stale.
 
-   Two things `doom doctor` turned up once the config was actually running.
-   `doom install` writes `~/.config/doom` from Doom's example templates
-   whether or not `$DOOMDIR` is set, and the doctor then reports "two private
-   configs" with a message that names the paths in a fixed order and calls the
-   *second* ignored — backwards here, because `doom-user-dir` in `lisp/doom.el`
-   short-circuits on `$DOOMDIR` and never consults `~/.config/doom`. `doom
-   info` prints the directory really in use; that is the one to believe. The
-   shadow directory is byte-identical to `static/*.example.el`, so removing it
-   loses nothing — it is user state, deleted by hand, never by a rebuild.
+## Findings
 
-   And `nerd-icons.el` asks for the family **"Symbols Nerd Font Mono"** by
-   name, which a patched Iosevka does not answer to — `nerd-fonts.iosevka`
-   installs "Iosevka Nerd Font". Every icon in the modeline, dashboard and
-   dired was tofu until `nerd-fonts.symbols-only` joined `fonts.packages`.
-   The remaining doctor warnings are decision 4 working as intended: no
-   `rustc`, no `zig`, no `python` on the system.
-2. **The *modules* describe a desktop and a chipset, never a disk. The
-   repository also carries one real host.** `nixosModules.default` and
-   `nixosModules.laptop` (`nix/module.nix`, `nix/laptop.nix`) have no
-   `fileSystems`, no `swapDevices`, no `boot.loader`, no `users.users` and no
-   `stateVersion` -- those belong to an installation, and someone importing
-   this repository must not inherit another machine's disks.
+Each entry: what was seen, what it was, what fixed it and where. Grouped by
+the method that found it, because none of them was visible by reading.
 
-   `hosts/nixos-btw/` is the exception, and it is deliberate: it is the
-   reference machine, complete -- the generated `hardware-configuration.nix`
-   with its real UUIDs, systemd-boot, the user, the English/Japanese
-   specialisation, the monitor layout, and home-manager for the user's
-   applications. `sudo nixos-rebuild switch --flake .#nixos-btw` rebuilds
-   this laptop from a clone, and `/etc/nixos` is a symlink to that clone --
-   a *symlink*, not a flake that imports this one; the section below on
-   what the machine said explains why that distinction cost nine days.
+### By evaluating — `nix flake check`
 
-   This is a second reversal, and both earlier positions were right about
-   something. The first version of `hosts/laptop.nix` was deleted because a
-   repository that ships a disk hands its UUIDs to everyone who imports it --
-   true, and the split above is what actually answers it: the *modules* stay
-   diskless, so importing them is still safe, and the host is not something
-   anyone imports. The second version was deleted because "the machine is
-   being reinstalled and a stale UUID is a trap that looks like
-   documentation" -- also true, and now spent: the machine *was* reinstalled,
-   on 2026-09-05, and these UUIDs are the ones it has. When they go stale
-   again the fix is one command, written at the top of the file.
+Nix was runnable before the system existed, from `~/.nix-portable`; that is
+how these came out.
 
-   What the change buys is the thing neither earlier version had: the
-   machine every parity claim here is measured against is now *evaluated by
-   the gate*. `checks.nixos-btw` builds it whole -- home-manager, disks and
-   all -- so `nix flake check` fails when the reference machine stops
-   building, rather than when a stand-in for it does. `checks.laptop-module`
-   and `checks.install-template` still cover the diskless paths against a
-   throwaway root.
-3. **`hosts/minimal.nix` and `default.nix` are gone.** Once laptop.nix
-   covered the machine, minimal.nix was a second template of the same thing, and `default.nix`
-   duplicated `nixosModules.default` for non-flake users. One interface.
-4. **Toolchains stay out of the system**: `nix shell nixpkgs#rust-analyzer`.
-5. **Ly is the display manager, and the module turns it on.** It was only
-   ever *detected* before -- `displayManagerEnabled` knew how to react to it,
-   but nothing enabled it, and the one line that would have was commented out
-   in `hosts/laptop.nix`. It is `mkDefault true` in `nix/module.nix` now,
-   themed with the Tokyo Night palette. Ly takes `0xAARRGGBB` where the top
-   byte is an *attribute*, not alpha: `0x01` is bold, which is what the
-   upstream `error_fg = 0x01FF0000` means.
+- **`hosts/laptop.nix` could not build.** `services.flatpak.enable` with no
+  portal; NixOS asserts *"To use Flatpak you must enable XDG Desktop
+  Portals"*. It was never in `nixosConfigurations`, so nothing evaluated it.
+  Now a complete host, wired into the check.
+- **Three runtime dependencies had no provider**, found by listing what the
+  session invokes against the *effective* `systemPackages` (189 entries):
+  `pamixer` (`slstatus/config.h:76`; the volume segment was dead),
+  `libnotify` (`notify-send` for battery/brightness-notify; not part of
+  dunst), `gtk3` (`gtk-launch` for `dmenu_run_desktop`; `Super+d` listed and
+  launched nothing). `xrandr` and `procps`, also suspected, come from
+  `services.xserver`.
+- **Thunar was a bare package**: no thumbnails, trash or removable media.
+  Now `programs.thunar` + `services.gvfs` + `services.tumbler`, which is
+  what registers its D-Bus services.
+- **nixpkgs was 239 days stale and end-of-life.** Moving to `nixos-26.05`
+  surfaced: `noto-fonts-emoji` → `noto-fonts-color-emoji`, `poppler_utils`
+  → `poppler-utils`, `neofetch` removed, `xorg.*` → top-level `libx11` &c.,
+  `xfce.thunar-{archive-plugin,volman}` and `xfce.exo` → top level,
+  `pkgs.system` → `pkgs.stdenv.hostPlatform.system`. Zero warnings now.
 
-   Its clock is deliberately ASCII. Ly draws on the Linux console, whose font
-   has no CJK, so matching slstatus' `年月日` would render as tofu. For the
-   same reason the greeter is the one place where the **console** keymap
-   matters rather than X's -- see `console.keyMap` above.
+### By booting — `pkgs.testers.runNixOSTest`
 
-   `hosts/vm.nix` sets it to `false`: the test VM's whole point is booting
-   straight into dwm, and the module hands `services.xserver.autorun` and the
-   startx pseudo-DM back when it goes off.
-6. **The installation is a flake template, `templates/laptop/`.** Decision 2
-   is about what the repository *declares*; it left open how anyone is
-   supposed to reproduce this machine, and the honest answer was "copy the
-   twelve-line `flake.nix` out of the README and work out the rest", which
-   is not a reproduction. The template is the reference machine's `/etc/nixos`
-   with its disks removed: `flake.nix` (nixpkgs + this repo + home-manager),
-   `configuration.nix` (boot, identity, user, language, the autostart
-   activation), `home.nix` and `autostart.sh`. Four `EDIT` markers, then
-   rebuild.
+A headless VM that logs in on a TTY, runs `startx`, and asserts on the live
+session. Building proves evaluation; only booting proves it runs.
 
-   This does not reopen the argument decision 2 settled. Nothing in the
-   template is *declared* by the repository -- it is written into a file the
-   installation owns, once, and the repository never reads it again. And the
-   objection that killed `hosts/laptop.nix` (a template nobody evaluates is a
-   template that rots) is answered the same way as there: `checks.
-   install-template` builds `templates/laptop/configuration.nix` on top of
-   `nixosModules.laptop` against a throwaway root, so `nix flake check` fails
-   if the template stops evaluating.
+- **The store shipped binaries compiled on Artix.** `src = ../dwm` copies
+  the working tree; every vendored Makefile builds in place; a leftover
+  `dwm` was newer than its sources, so `make` skipped the compile and
+  installed the foreign binary, which asked for `/lib64/ld-linux-x86-64.so.2`
+  and died at `exec dwm`. `brightness-notify` was even committed. Three
+  layers now: `preBuild = "make clean"` in `nix/lib.nix` (every Makefile
+  has `clean`; none touches `config.h`), a `postFixup` that fails on any
+  interpreter outside the store, `.gitignore` for all eleven build products.
+- **fcitx5 and mozc had never worked.** `i18n.inputMethod.type` without
+  `enable` installs nothing and exports no `GTK_IM_MODULE` /
+  `QT_IM_MODULE` / `XMODIFIERS`; the launcher called bare `${pkgs.fcitx5}`
+  instead of `config.i18n.inputMethod.package`. `mozc_server` runs now.
+- **The launcher's idempotency guard was a no-op.** `pgrep -x "${1##*/}"`
+  matches a process *name*; makeWrapper'd packages run as `.dunst-wrapped`,
+  and `comm` caps at 15 chars (`.flameshot-wrap`). Four of six daemons are
+  wrapped. It matches the full store path now — the wrapper keeps `argv[0]`.
+- **No firmware at all.** A hand-written hardware block does not import
+  `installer/scan/not-detected.nix`, where `nixos-generate-config` turns
+  `enableRedistributableFirmware` on. The `firmware` derivation was 5.2 KiB;
+  808.6 MiB now, with `iwlwifi-QuZ-a0-*.ucode`.
+- Smaller: TTYs had no keymap (`console.keyMap = "br-abnt2"` — the
+  password prompt is a TTY); `blueman` without `services.blueman` could not
+  pair; udisks2 calls a fixed second drive *system internal*
+  (`auth_admin_keep`), so a polkit rule lets `wheel` mount it silently.
+- **Two things made a working VM look broken.** No wallpaper anywhere:
+  `nix/module.nix` left it to `autostart.sh`, which nothing ever created —
+  it is `wallpapers/sushi_original.png` and
+  `programs.suckless-environment.wallpaper` now, painted before the hook so
+  a hook can override. And every keybinding went to the host: QEMU's GTK
+  display does not grab the keyboard by default — `-display
+  gtk,grab-on-hover=on`. The VM boots straight into dwm (autologin +
+  `startx` from `loginShellInit`; `/etc/profile` sources `set-environment`
+  first, so PATH is right when X starts).
 
-   The template and `hosts/nixos-btw/` are not duplicates, and the
-   difference is worth stating because they look alike: the host is *this*
-   machine, with its disks, and it is rebuilt; the template is a starting
-   point for *another* machine, with no disks, and it is copied once and
-   then owned by whoever copied it. When they drift apart, the host is
-   right and the template is a teaching copy.
+### By driving the session — `xdotool` into live dwm
 
-## Using the flake as the interface
+- **`loginctl poweroff` / `reboot` do not exist on systemd.** They are
+  elogind verbs (real on `origin/artix`). `exec_detach` sends stderr
+  nowhere, so "Unknown command verb" never printed and the menu looked
+  inert. `dmenu-session` calls `systemctl`; logind answers `CanPowerOff` /
+  `CanReboot` yes for an active local session, no password either way.
+- **`exec_wait` raced its own SIGCHLD handler.** `sigchld_handler` reaps
+  every child with `waitpid(-1, WNOHANG)`, wins against anything as fast as
+  `pgrep`, and `exec_wait`'s `waitpid` then fails with ECHILD leaving
+  `status` uninitialised — the "is a lock screen up?" guard in
+  `action_lock` skipped locking on stack garbage. SIGCHLD is blocked around
+  fork/wait and restored in the child.
+- **Thunar could not run anything in a terminal.** exo 4.20 hands it to
+  `xfce4-mime-helper`, which ships only in `xfce4-settings` (1.5 GiB,
+  deliberately absent). The fallback spawns `<binary> "<whole command line
+  as one argv>"`; st read it as argv[0] and died with *"child exited with
+  status 1"*. `st-exo-helper` in `nix/module.nix` turns that one argument
+  back into `st -e sh -c`. Same fallback, two dead `helpers.rc` entries:
+  values are *binary names* via `g_find_program_in_path`
+  (`WebBrowser=brave-browser` never matched; the binary is `brave`), and it
+  reads `g_get_user_config_dir()` only — not `XDG_CONFIG_DIRS`, so the
+  `/etc/xdg` copy was never opened. A `systemd.user.tmpfiles` `L` rule
+  (not `L+`) links `~/.config/xfce4/helpers.rc`; a real file wins.
+- **Not broken, though suspected:** `Ctrl+Alt+Delete` itself, and the `-m`
+  argument shared by the four dmenu commands — `spawn()` rewrites `dmenumon`
+  for all of them, so menus follow the focused monitor.
 
-`flake.nix` is the whole API, and every one of these is meant to be used:
+### By running binaries this repository did not build
 
-* `nixosConfigurations.nixos-btw` — the reference machine itself.
-  `sudo nixos-rebuild switch` rebuilds this laptop, because `/etc/nixos` is
-  a symlink to the clone and `nixos-rebuild` implies `--flake /etc/nixos`
-  with the hostname as the attribute. See decision 2.
-* `nix run .#vm` — boot the test host in QEMU, no disk, no result symlink.
-  A VM owns its virtual disk, so declaring one costs nothing.
-* `nix flake check` — builds all five tools, the VM, the whole `nixos-btw`
-  host, `nixosModules.laptop` and `templates/laptop/configuration.nix` (the
-  last two against a throwaway root). The gate.
-* `nix fmt` — `nixfmt-tree`. It walks far more than this repository and exits
-  non-zero on unrelated trees; `nixfmt` on the `.nix` files is the honest
-  check.
-* `nix flake init -t .#laptop` — writes a complete `/etc/nixos` next to the
-  generated `hardware-configuration.nix`. The reproduction path for *another*
-  machine; see decision 6.
-* `nixosModules.default` — the desktop alone, for another machine.
-* `nixosModules.laptop` — the desktop plus this chipset. Combine it with the
-  generated `hardware-configuration.nix` and name the result yourself; the
-  template does exactly that, and calls it `nixos-btw`.
+`programs.nix-ld` was already on and answering `/lib64/ld-linux-x86-64.so.2`
+(`~/.opencode/bin/opencode`, libc-only, always worked). nix-ld hands a
+program only the libraries it is told to; the stock list is libc, libstdc++,
+zlib, openssl, curl, systemd.
 
-## Conventions
+| Program | Died on | Really needed | Where |
+|---|---|---|---|
+| a Tauri app (old Artix build) | `libgdk-3.so.0` | gtk3, webkitgtk_4_1, libsoup_3 | `programs.nix-ld.libraries` |
+| UPBGE | `libX11.so.6`, `libSM.so.6` | the X11 set, GL, pulse, wayland | same |
+| a Flutter AppImage | `libepoxy.so.0` | libepoxy | `programs.appimage.package` — **not** nix-ld: `appimage-run` has its own FHS sandbox |
 
-* Comments and docs in **English**; conversation with the owner in
-  **Portuguese**.
-* Tokyo Night: `#1a1b26` `#a9b1d6` `#414868` `#7aa2f7` `#565f89` `#f7768e`
-  `#9ece6a` `#e0af68` `#bb9af7` `#7dcfff`.
-* Machine-specific session state lives in `~/.config/suckless/autostart.sh`,
-  never in the flake.
-* `utils/` on this branch carries **no** `config.h` — the backends
-  (`powerprofilesctl`, `betterlockscreen`, `systemctl`) are in the `.c`
-  files, which is why `services.power-profiles-daemon` is enabled. Do not
-  copy the `guix` branch's generated `config.h` here; `.gitignore` blocks
-  it. Those hardcoded backends are also where this branch diverges from
-  `origin/artix`: the same line that reads `systemctl` here reads
-  `loginctl` there, because elogind and systemd disagree about which of
-  them owns the power verbs.
-* Nothing that fails `nix flake check` reaches `nixos-rebuild switch`.
+Both lists live in `nix/module.nix` and cost **238 KiB** of closure; the
+desktop already drags in the same GTK/X11/webkit. Listing *direct*
+dependencies is enough — anything reached through nix-ld carries its own
+RUNPATH. None of this reverses decision 4: nothing here compiles.
+
+### By looking in `$HOME` — configuration that existed nowhere else
+
+The pattern to watch: anything the reference machine has in `~/.config`
+and the repository does not.
+
+- `tmux/tmux.conf` — Tokyo Night Moon, `C-Space`, vi copy-mode via xclip,
+  Alt navigation — existed in **no branch**. `programs.tmux` now.
+- `thunar/uca.xml` — **Thunar ships no "Open Terminal Here"**; it is a custom
+  action, and the only copy was in `~/.config/Thunar/`. Now
+  `/etc/xdg/Thunar/uca.xml`: Thunar uses `xfce_resource_lookup`, which walks
+  `XDG_CONFIG_DIRS`, so unlike exo's `helpers.rc` it needs no tmpfiles rule.
+  Editing in Thunar's dialog writes the `~/.config` copy, which shadows it.
+- The neofetch config was stock; nothing lost.
+- Two things went the other way, from the installation into the module as
+  defaults: `console.font = "Lat2-Terminus16"` (the built-in console font is
+  ASCII, wrong at the first "ç" in Ly) and `autoRepeatDelay/Interval`
+  200/35 (a tiling WM is held keys; X's 660 ms default is felt).
+- **Drift that will recur:** fcitx5 rewrites `~/.config/fcitx5/profile` at
+  runtime; the shipped copy is a seed. It drifts to `DefaultIM=mozc`, which
+  routes ABNT2 through the Japanese engine ("keyboard went English").
+  Delete the user copy and re-login. No declarative fix short of a read-only
+  file and no configtool.
+
+### By asking the machine — 2026-09-16
+
+Every claim above had been checked against the repository. The machine had
+stopped being what the repository described.
+
+- **`/etc/nixos` was not a pointer.** A complete flake of its own, pulling
+  this repository as `git+file:///home/void/…` locked at `751624e` — three
+  commits before the one that moved the host in here — with a nixpkgs three
+  days older. Generations 22–24 came from it, and the owner kept editing
+  `/etc/nixos/{configuration,home}.nix` directly, because that was the file
+  the machine read. Only there: VRR, `nix.gc`, `nix.optimise`, and `gcc
+  gnumake pkg-config libpcap python3 vim gh btop`. Ported into the host;
+  `nix store diff-closures` against the running system proved two additions
+  (`vpl-gpu-rt`, `vrr`) and no removal; `/etc/nixos` is a symlink (decision 7).
+- **OBS: "Starting the output failed".** The auto-config wizard picked
+  QuickSync H.264; every recording died with `MFX_ERR_NOT_FOUND`.
+  `intel-media-driver` is VA-API; QuickSync is a second stack whose GPU
+  runtime, `vpl-gpu-rt`, was not installed. The plugin loads and lists the
+  encoder regardless. nixpkgs patches `libvpl` to search
+  `/run/opengl-driver/lib`, so the package in
+  `hardware.graphics.extraPackages` (`nix/laptop.nix`) is the whole fix —
+  proven before the switch with `ffmpeg -c:v h264_qsv` and
+  `ONEVPL_SEARCH_PATH`: encodes with the runtime, `Device creation failed`
+  without.
+- **FreeSync on DP-1 could not engage, and no option would have made it.**
+  `VariableRefresh` on, `_VARIABLE_REFRESH` on the window, picom
+  unredirected — `VRR_ENABLED = 0` anyway. Xorg's Present page-flips only a
+  window covering the **whole root**; with eDP-1 lit that is 3840×1080. Panel
+  off, same window: `VRR_ENABLED = 1`. The host ships `vrr on|off`, the only
+  lever X11 has. HDR10 is impossible on X11; the link's bpc needs root to
+  read (`/sys/kernel/debug/dri/1/i915_display_info`).
+
+## Locale, fonts, theme
+
+- **Japanese**, `LANGUAGE=ja:en` (so untranslated programs fall to English,
+  not the C locale). `ja_JP`, `en_US`, `pt_BR`, `C` generated.
+  `specialisation.english` in the module is a whole second system; the
+  reference host inverts it (English + `japanese`). No GUI for the locale on
+  purpose: `/etc/locale.conf` is a store symlink.
+- Interface font **Noto Sans CJK JP**; `noto-fonts` added for a Latin sans;
+  `nerd-fonts.symbols-only` for Doom's icons.
+- Theme GUI: `lxappearance` (GTK) and `qt6Packages.fcitx5-configtool`. The
+  module ships `/etc/xdg/gtk-3.0/settings.ini` — Arc-Dark, Papirus-Dark,
+  Adwaita cursors, Noto Sans 11; `~/.config/gtk-3.0/settings.ini` overrides.
+  The machine's `TokyoNight-SE` icons and `DeppinWhite-cursors` are personal
+  downloads in `~/.local/share/icons`, user state, not packaged.
+- Timezone `America/Sao_Paulo`, set by the host.
+
+## The flake's interface
+
+| Output | Use |
+|---|---|
+| `nixosConfigurations.nixos-btw` | this machine; `sudo nixos-rebuild switch` through the `/etc/nixos` symlink |
+| `nixosConfigurations.vm`, `nix run .#vm` | the QEMU host, no disk, no result symlink |
+| `packages.{dwm,st,dmenu,slstatus,utils,vm}` | each vendored tool as a derivation; `nix build .#dwm` |
+| `checks.*` | those five, the VM, `nixos-btw`, `laptop-module`, `install-template` — the gate |
+| `nixosModules.default` / `.laptop` | the desktop / the desktop plus this chipset |
+| `templates.laptop` | `nix flake init -t .#laptop`: a complete `/etc/nixos` for another machine |
+| `formatter` | `nixfmt-tree`; prefer `nixfmt` on the tracked files |
