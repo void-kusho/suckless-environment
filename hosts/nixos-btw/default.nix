@@ -78,8 +78,8 @@
   # VariableRefresh off and logs `(==) VariableRefresh: disabled' until
   # this option is set; with it, the driver flips the CRTC into VRR for
   # a fullscreen window that carries _VARIABLE_REFRESH (Mesa sets it on
-  # every GL/Vulkan window by default) and is unredirected (picom's
-  # unredir-if-possible, in picom/picom.conf).
+  # every GL/Vulkan window by default). There is no compositor, so no
+  # window is ever redirected and nothing stands between it and the flip.
   #
   # That arms it. It cannot make it fire, and this is the half that was
   # missing: Xorg's Present page-flips a window only when it covers the

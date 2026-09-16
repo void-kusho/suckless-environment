@@ -253,6 +253,7 @@ rm -rf ~/.config/doom     # dead weight — see Doom Emacs below
 | The greeter rejects the password | The console keymap is `br-abnt2`. Not Brazilian? Set `console.keyMap` and `services.xserver.xkb.layout` in your host — both are `mkDefault` in the module for this reason. |
 | The keyboard "goes English" while typing | fcitx5 rewrote `~/.config/fcitx5/profile` to `DefaultIM=mozc`, routing every key through the Japanese engine. `rm` that file and log in again; the shipped seed keeps mozc on `Ctrl+Alt+Space`. |
 | No microphone or no sound in Brave, Spotify, Obsidian, Meet — right after a rebuild | The switch restarted PipeWire (any rebuild that touches glibc restarts every user service), and Chromium/Electron apps do not reconnect to a new audio server. Close the app completely (`pkill -f brave`) and reopen it. A bluetooth headset exposes its microphone only in the HFP/Handsfree profile, not A2DP — `pavucontrol` → Configuration. |
+| The 180 Hz monitor feels like 60 | Something is compositing the whole screen — a compositor you started, or a picom left in `autostart.sh`. The desktop ships none; see [Monitors](#monitors). |
 | A binary built elsewhere will not start | It names the library: `error while loading shared libraries: libfoo.so.1`. Add the package to `programs.nix-ld.libraries` and rebuild. |
 | Not sure it will work | `nix flake check` in a clone, before `switch`. |
 
@@ -320,16 +321,25 @@ AOC offers and what an X11 session gets:
 | 10 bits per colour | the link may negotiate 10 bpc (`max bpc: 12`); the X framebuffer stays 8-bit | — |
 | HDR10 | no: X11 has no HDR path; that needs a Wayland compositor | — |
 
+**There is no compositor, and that is what makes 180 Hz real.** A
+compositor paints the whole root through one vsynced swap, and the X server
+ties that swap to a single CRTC — with two monitors of equal size, the
+first one it finds, which here is the 60 Hz panel. Measured on the
+reference machine with a root-sized GL window: 60 swaps/s while a window
+on DP-1 alone did 180. So with picom running, DP-1 scanned out 180 times a
+second and its content changed 60. Without a compositor every window
+presents to its own CRTC at its own rate. What goes with it: the
+open/close animations, and a global tear-free guarantee — Brave and mpv
+vsync themselves; a terminal scrolling fast may show a tear line.
+
 **FreeSync needs one monitor, and that is Xorg, not this configuration.**
-Variable refresh on X11 takes three things: the driver allows it
-(`Option "VariableRefresh" "true"`, set in the host), the window is
-unredirected (picom's `unredir-if-possible` does it for any fullscreen
-window), and the server **page-flips** the window instead of copying it.
-Present only flips a window that covers the *whole root*. With the panel
-lit the root is 3840×1080, a window that fills DP-1 is copied at a fixed
-180 Hz, and the CRTC's `VRR_ENABLED` never leaves 0. Measured with
-`glxgears -fullscreen` and `drm_info`: 0 with both outputs, 1 the moment the
-panel is off.
+Variable refresh on X11 takes the driver allowing it
+(`Option "VariableRefresh" "true"`, set in the host) and the server
+**page-flipping** the window instead of copying it. Present only flips a
+window that covers the *whole root*. With the panel lit the root is
+3840×1080, a window that fills DP-1 is copied, and the CRTC's
+`VRR_ENABLED` never leaves 0. Measured with `glxgears -fullscreen` and
+`drm_info`: 0 with both outputs, 1 the moment the panel is off.
 
 So the host ships a switch:
 
@@ -441,7 +451,7 @@ dwm/ st/ dmenu/ slstatus/   vendored sources, patches and config.h
 utils/              the C utilities
 doom/               $DOOMDIR: init.el, config.el, packages.el
 wallpapers/         the default wallpaper (programs.suckless-environment.wallpaper)
-bash/ dunst/ fcitx5/ picom/ thunar/ tmux/   deployed by the module
+bash/ dunst/ fcitx5/ thunar/ tmux/   deployed by the module
 ```
 
 ## Keybindings

@@ -12,7 +12,7 @@
 #               battery monitor loop, slstatus supervisor loop --
 #               all started by the dwm launcher
 #   * Desktop:  thunar, brave, flameshot, feh, betterlockscreen,
-#               brightnessctl, picom, xdotool, pactl, appimage-run ...
+#               brightnessctl, xdotool, pactl, appimage-run ...
 #   * System:   br/abnt2 keyboard, backlight udev rules,
 #               power-profiles-daemon (for dmenu-cpupower), bluetooth,
 #               PipeWire audio, NetworkManager, CJK/Nerd fonts
@@ -77,10 +77,14 @@ let
     start_daemon ${packages.utils}/bin/dmenu-clipd
     start_daemon ${pkgs.dunst}/bin/dunst
     start_daemon ${pkgs.flameshot}/bin/flameshot
-    ${lib.optionalString cfg.compositor.enable ''
-      # Compositor: vsync + subtle open/close animations (picom/picom.conf).
-      start_daemon ${pkgs.picom}/bin/picom -b
-    ''}
+
+    # No compositor, on purpose. A compositor paints the whole root through
+    # one vsynced swap, and the X server ties that swap to a single CRTC --
+    # on a two-monitor desktop with different refresh rates, the slower
+    # one. Measured on the reference machine: a root-sized drawable
+    # synced at 60 with picom's overlay, so a 180 Hz monitor beside a
+    # 60 Hz panel showed 60 fps. Without one, every window presents to
+    # its own CRTC at its own rate. See CLAUDE.md, decision 8.
 
     # Battery monitor: 30 second tick.
     (
@@ -200,14 +204,6 @@ in
       example = lib.literalExpression "[ pkgs.discord pkgs.steam ]";
     };
 
-    compositor = {
-      enable =
-        lib.mkEnableOption "the picom compositor (vsync + subtle open/close animations), started with the session"
-        // {
-          default = true;
-        };
-    };
-
     wallpaper = lib.mkOption {
       type = lib.types.nullOr lib.types.path;
       default = ../wallpapers/sushi_original.png;
@@ -243,7 +239,6 @@ in
         xdotool # pointer warp (autostart hook)
         xclip
         xsel
-        picom # compositor (installed; launch from autostart hook if wanted)
         pulseaudio # provides pactl for the volume media keys
         pamixer # slstatus' volume segment shells out to it (slstatus/config.h)
         libnotify # notify-send -- battery-notify and brightness-notify call it
@@ -438,10 +433,6 @@ in
 
     # Notification daemon settings (urgency levels, geometry, theme).
     environment.etc."xdg/dunst/dunstrc".source = ../dunst/dunstrc;
-
-    # Compositor settings: vsync + subtle open/close animations. Deployed
-    # system-wide; a user ~/.config/picom/picom.conf overrides it.
-    environment.etc."xdg/picom/picom.conf".source = ../picom/picom.conf;
 
     # tmux, with the reference machine's configuration: Tokyo Night Moon,
     # C-Space as the prefix, vi copy-mode piping through xclip, Alt+hjkl and

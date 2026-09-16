@@ -86,7 +86,7 @@ applications and toolchains.
 
 | Path | Owns | Never contains |
 |---|---|---|
-| `nix/module.nix` | the desktop: `programs.suckless-environment.{enable, extraPackages, compositor.enable, wallpaper}`, session daemons, fonts, fcitx5/mozc, Ly, nix-ld libraries, xdg files | a disk, a user, a hostname |
+| `nix/module.nix` | the desktop: `programs.suckless-environment.{enable, extraPackages, wallpaper}`, session daemons, fonts, fcitx5/mozc, Ly, nix-ld libraries, xdg files | a disk, a user, a hostname |
 | `nix/laptop.nix` | the chipset: firmware, microcode, `modesetting`, iHD (VA-API), `vpl-gpu-rt` (QuickSync), thermald, fstrim, fwupd, flatpak + GTK portal | same |
 | `hosts/nixos-btw/` | this machine, whole | anything anyone imports |
 | `hosts/vm.nix` | the QEMU host: autologin, `startx`, Ly off, `grab-on-hover` | — |
@@ -141,6 +141,16 @@ When the host and the template drift, the host is right.
    `git+file:` input sees committed work only and moves only on `nix flake
    update`; that design ran the machine nine days behind the repository in
    silence (see 2026-09-16 below). A symlink has no lock file to go stale.
+8. **No compositor.** picom was here for vsync and open/close animations,
+   and it cost the external monitor two thirds of its refresh rate: the
+   overlay is one root-sized swap, the server syncs that drawable to one
+   CRTC, and with two 1920×1080 outputs the choice fell on the 60 Hz panel
+   (measured: a root-sized GL window synced at 60; one on DP-1 alone at
+   180). No `compositor.enable` option remains — an option that defaults
+   to the wrong thing is how it came back. Without a compositor each
+   window presents to its own CRTC; the cost is the animations and a
+   global tear-free guarantee that modesetting 21.1 cannot give anyway
+   (`TearFree` arrived in xserver 22).
 
 ## Findings
 
@@ -304,9 +314,15 @@ stopped being what the repository described.
   proven before the switch with `ffmpeg -c:v h264_qsv` and
   `ONEVPL_SEARCH_PATH`: encodes with the runtime, `Device creation failed`
   without.
+- **The 180 Hz monitor was showing 60 fps.** Not the mode — X and KMS
+  both had DP-1 at 180 — but picom's overlay: a 3840×1080 drawable is
+  vsynced to whichever CRTC the server picks, and it picked the panel. A
+  root-sized GL window measured 60 swaps/s, a DP-1-sized one 180, and with
+  the panel shrunk by one pixel (`--scale-from 1919x1079`) the root-sized
+  one jumped to 180 — proof of the tie, and a hack not taken. Decision 8.
 - **FreeSync on DP-1 could not engage, and no option would have made it.**
-  `VariableRefresh` on, `_VARIABLE_REFRESH` on the window, picom
-  unredirected — `VRR_ENABLED = 0` anyway. Xorg's Present page-flips only a
+  `VariableRefresh` on, `_VARIABLE_REFRESH` on the window, nothing
+  redirecting it — `VRR_ENABLED = 0` anyway. Xorg's Present page-flips only a
   window covering the **whole root**; with eDP-1 lit that is 3840×1080. Panel
   off, same window: `VRR_ENABLED = 1`. The host ships `vrr on|off`, the only
   lever X11 has. HDR10 is impossible on X11; the link's bpc needs root to
