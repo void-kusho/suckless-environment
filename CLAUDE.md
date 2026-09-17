@@ -28,7 +28,9 @@ the machine this all targets), `guix-wayland` (an abandoned dwl port).
   machine that file is `hosts/nixos-btw/autostart.sh`, installed by activation.
 - **`utils/` carries no `config.h` on this branch.** The backends —
   `powerprofilesctl`, `betterlockscreen`, `systemctl` — are in the `.c`
-  files, which is why `services.power-profiles-daemon` is on. `.gitignore`
+  files, which is why `services.power-profiles-daemon` is on — and
+  `services.upower`, which is where that daemon learns AC from battery
+  (2026-09-17 below). `.gitignore`
   blocks a `config.h`; do not copy the `guix` branch's. Where `origin/artix`
   reads `loginctl`, this branch reads `systemctl`: elogind and systemd
   disagree about who owns the power verbs.
@@ -344,6 +346,41 @@ stopped being what the repository described.
   off, same window: `VRR_ENABLED = 1`. The host ships `vrr on|off`, the only
   lever X11 has. HDR10 is impossible on X11; the link's bpc needs root to
   read (`/sys/kernel/debug/dri/1/i915_display_info`).
+
+### By asking the machine — 2026-09-17
+
+- **"`Super+p` does not work."** It did: driven through dwm itself
+  (`xdotool key super+p`, type, Return), `powerprofilesctl get` followed
+  every choice, and each one landed in
+  `/sys/devices/system/cpu/cpu0/cpufreq/energy_performance_preference`
+  (`power` / `balance_performance` / `performance`). What it lacked was any
+  sign of having done it: the profile's only visible trace is the prompt of
+  the *next* menu, and a failed `set` went to a stderr dwm sends nowhere —
+  the same silence that hid `loginctl` in `dmenu-session`. It says the
+  outcome through dunst now (replace-id 9003; battery-notify holds 9001–2),
+  the failure at critical urgency. Verified both ways, the second with a
+  refusing stub on `PATH`.
+- **power-profiles-daemon 0.30 was blind to the battery.** Its
+  `state.ini` said `battery_aware=true`, and since 0.20 that is supposed to
+  make `balanced` mean `balance_power` on battery. The daemon takes
+  `OnBattery` from `org.freedesktop.UPower` — a proxy opened with
+  `DO_NOT_AUTO_START`, no `/sys` fallback, and no other path that ever sets
+  the intel_pstate driver's `on_battery` (`power-profiles-daemon.c`,
+  `upower_source_update`) — and UPower was not installed: the name was not
+  even activatable, which is what wireplumber and the browser logged in
+  this boot's journal. So `balanced` was `balance_performance` on AC
+  (measured) and could not be anything else unplugged.
+  `services.upower.enable` in `nix/module.nix`, next to the daemon;
+  `diff-closures` against the running system: 45 KiB, the package was
+  already in the closure. What UPower adds of its own: a critical action
+  20 s after 2 % on battery, `HybridSleep` → `Hibernate` → `PowerOff` in
+  order of what logind answers, and this host answers `na` to the first
+  two. Its 20/5 % levels are battery-notify's.
+- **What the profile can do here.** `PlatformDriver: placeholder`:
+  `samsung_galaxybook` is loaded but registers no platform profile on this
+  model (`/sys/class/platform-profile/` is empty), so a profile is the EPP
+  hint and nothing else — no fan curve, no power limit. `performance` is
+  never `Degraded`.
 
 ## Locale, fonts, theme
 

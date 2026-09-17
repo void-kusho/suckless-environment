@@ -725,6 +725,17 @@ in
 
     # CPU profile switching for dmenu-cpupower (Super+p).
     services.power-profiles-daemon.enable = lib.mkDefault true;
+    # power-profiles-daemon learns AC-or-battery from UPower alone
+    # (org.freedesktop.UPower "OnBattery", proxied with DO_NOT_AUTO_START)
+    # and never from /sys. Without it `balanced' is balance_performance on
+    # battery too, and `configure-battery-aware' is a switch wired to
+    # nothing; wireplumber and the browsers ask the same name and log its
+    # absence at every login. UPower's own contribution is a critical
+    # action 20 s after 2 % on battery: HybridSleep, falling through to
+    # Hibernate and then PowerOff wherever logind cannot do the first two
+    # (a host with no resume device gets the power-off). Its low and
+    # critical levels, 20 and 5 %, are the ones battery-notify already uses.
+    services.upower.enable = lib.mkDefault true;
 
     # Bluetooth stack (pairing tools: bluetoothctl, bluetuith,
     # blueman-manager). services.blueman is what registers

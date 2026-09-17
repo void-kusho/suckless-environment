@@ -8,6 +8,22 @@
 #include "../common/dmenu.h"
 #include "../common/util.h"
 
+/* notify-send replace-id: switching twice updates one notification
+ * instead of stacking two. battery-notify holds 9001 and 9002. */
+#define REPLACE_ID "9003"
+
+/* dwm spawns this with stderr going nowhere, so warn() alone is a menu
+ * that looks inert -- and a profile switch has no visible effect of its
+ * own. Say the outcome through dunst, like the other utilities do. */
+static void
+notify(const char *urgency, const char *body)
+{
+	const char *cmd[] = { "notify-send", "-u", urgency, "-r", REPLACE_ID,
+	                      "Power profile", body, NULL };
+
+	exec_detach(cmd);
+}
+
 static int
 capture_stdout(const char *const argv[], char *buf, size_t bufsz)
 {
@@ -90,8 +106,13 @@ main(int argc, char *argv[])
 	}
 
 	set_cmd[2] = sel;
-	if (exec_wait(set_cmd) != 0)
+	if (exec_wait(set_cmd) != 0) {
 		warn("powerprofilesctl set failed");
+		notify("critical", "powerprofilesctl set failed");
+		free(sel);
+		return 1;
+	}
+	notify("normal", sel);
 
 	free(sel);
 	return 0;

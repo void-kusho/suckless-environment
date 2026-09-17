@@ -489,7 +489,7 @@ Plain POSIX C, no configuration file — the backends are in the sources.
 | `battery-notify` | low/critical notifications, 30 s tick |
 | `brightness-notify` | brightnessctl plus an OSD notification |
 | `dmenu-clipd` / `dmenu-clip` | clipboard daemon and history browser |
-| `dmenu-cpupower` | power profile selector, through `powerprofilesctl` |
+| `dmenu-cpupower` | power profile selector, through `powerprofilesctl`; the outcome is a dunst notification |
 | `dmenu-session` | lock / logout / reboot / shutdown, through `betterlockscreen` and `systemctl` |
 
 ## Contributing

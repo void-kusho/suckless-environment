@@ -74,6 +74,8 @@
     # that drives it.
     steamcmd
     steam-tui
+    docker
+    docker-compose
   ];
 
   # OBS through its module: it is what builds the wrapper that can find
