@@ -25,7 +25,7 @@
     spotify
     dosfstools
     ntfs3g
-
+    clang-tools
     # The graphical mixer: per-application volume and routing -- sending
     # Spotify to one sink while OBS captures another. The desktop already
     # ships pulsemixer (TUI) and pamixer (what slstatus/config.h:76 calls),
