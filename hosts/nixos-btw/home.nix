@@ -76,6 +76,7 @@
     steam-tui
     docker
     docker-compose
+    kdePackages.kdenlive
   ];
 
   # OBS through its module: it is what builds the wrapper that can find
