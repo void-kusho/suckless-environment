@@ -6,8 +6,6 @@
 *.o
 *.orig
 *.rej
-result
-result-
 dwm/dwm
 dmenu/dmenu
 dmenu/stest
@@ -19,8 +17,9 @@ utils/dmenu-clip/dmenu-clip
 utils/dmenu-clipd/dmenu-clipd
 utils/dmenu-cpupower/dmenu-cpupower
 utils/dmenu-session/dmenu-session
-utils/*/test-*
-tests/test-*
+# `make test' in utils/ links the two suites at the top of that directory.
+utils/test-util
+utils/test-dmenu
 
 # These utilities carry no config.h on this branch -- their backends are in
 # the .c files. The entries below only stop the guix branch's generated
@@ -28,8 +27,10 @@ tests/test-*
 utils/dmenu-session/config.h
 utils/dmenu-cpupower/config.h
 
-# nix build output symlink
+# nix build output symlinks: `result', and `result-<output>' when a
+# derivation has more than one.
 result
+result-*
 
 # QEMU writes the VM's disk into the current directory when you `nix run .#vm'
 # from here. It is regenerated on every run and must never be committed.
