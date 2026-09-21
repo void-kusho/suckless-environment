@@ -26,11 +26,6 @@
     dosfstools
     ntfs3g
     clang-tools
-    # Remote desktop. nixpkgs carries two builds: `rustdesk' is the legacy
-    # Sciter UI and pulls in libsciter, which is unfree and would need a
-    # sixth name in the predicate in ./default.nix; `rustdesk-flutter' is
-    # the UI upstream ships, free end to end, and in the binary cache.
-    rustdesk-flutter
     # The graphical mixer: per-application volume and routing -- sending
     # Spotify to one sink while OBS captures another. The desktop already
     # ships pulsemixer (TUI) and pamixer (what slstatus/config.h:76 calls),
