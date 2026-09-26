@@ -1,8 +1,8 @@
 # nixos-btw — the reference machine, complete.
 #
 # This is the one host in this repository that describes a real disk. Every
-# parity claim in CLAUDE.md is checked against it, and it is the machine the
-# whole repository was written on: Intel i5-1135G7, 16 GiB, eDP-1 + DP-1.
+# parity claim is checked against it, and it is the machine the whole
+# repository was written on: Intel i5-1135G7, 16 GiB, eDP-1 + DP-1.
 #
 # On the machine, /etc/nixos is a symlink to the clone and nothing else, so
 # the daily command is

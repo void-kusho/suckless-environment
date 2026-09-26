@@ -494,8 +494,10 @@ Plain POSIX C, no configuration file — the backends are in the sources.
 
 ## Contributing
 
-`CLAUDE.md` is the project context: the reference machine, what was found
-broken and how, and the reasoning behind each decision.
+`AGENTS.md` is the working context: what the gate is, who owns which file,
+and the traps that have already cost time. `git log` is the rest — the
+reasoning behind each decision is in the message that made it, next to the
+change.
 
 ## License
 

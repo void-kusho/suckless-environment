@@ -84,7 +84,7 @@ let
     # one. Measured on the reference machine: a root-sized drawable
     # synced at 60 with picom's overlay, so a 180 Hz monitor beside a
     # 60 Hz panel showed 60 fps. Without one, every window presents to
-    # its own CRTC at its own rate. See CLAUDE.md, decision 8.
+    # its own CRTC at its own rate.
 
     # Battery monitor: 30 second tick.
     (

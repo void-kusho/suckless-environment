@@ -150,9 +150,9 @@
         };
 
         # The reference machine, complete -- disks, user, bootloader and
-        # all. This is the machine every parity claim in CLAUDE.md is
-        # checked against, and it is now checked here too rather than
-        # described from a distance.
+        # all. This is the machine every parity claim is checked against,
+        # and it is now checked here too rather than described from a
+        # distance.
         #
         #   sudo nixos-rebuild switch --flake /home/void/suckless-environment#nixos-btw
         #
