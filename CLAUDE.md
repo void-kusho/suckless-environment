@@ -265,7 +265,8 @@ session. Building proves evaluation; only booting proves it runs.
 ### By running binaries this repository did not build
 
 `programs.nix-ld` was already on and answering `/lib64/ld-linux-x86-64.so.2`
-(`~/.opencode/bin/opencode`, libc-only, always worked). nix-ld hands a
+(`~/.opencode/bin/opencode`, libc-only, always worked — the curl
+installer's build, since replaced by `pkgs-unstable.opencode`). nix-ld hands a
 program only the libraries it is told to; the stock list is libc, libstdc++,
 zlib, openssl, curl, systemd.
 
@@ -381,6 +382,23 @@ stopped being what the repository described.
   model (`/sys/class/platform-profile/` is empty), so a profile is the EPP
   hint and nothing else — no fan curve, no power limit. `performance` is
   never `Degraded`.
+
+### By asking the machine — 2026-09-26
+
+- **opencode stopped answering.** `home.nix` had moved it from the curl
+  installer to `pkgs.opencode`, which on `nixos-26.05` is 1.15.10; the free
+  tier replies *"OpenCode 1.18.0 or newer is required"* (its log, not the
+  TUI, says so). A `nixpkgs-unstable` input, handed to `home.nix` as
+  `pkgs-unstable` through `extraSpecialArgs`, supplies that one package
+  (1.18.31); nothing else follows it. `~/.opencode` (installer binary and
+  its dependency cache, 235 MiB) is deleted. Cost in `diff-closures`:
+  ~150 MiB, most of it unstable's own glibc and gcc runtime.
+- **Thunar's "Extract Here" / "Create Archive…" did nothing.**
+  `thunar-archive-plugin` runs `<default archiver>.tap` from a path compiled
+  into its `.so` — its own `$out/libexec/thunar-archive-plugin` — which
+  holds taps for ark, engrampa and file-roller. `xarchiver.tap` ships in
+  xarchiver's store path and was never found. An `overrideAttrs` in
+  `nix/module.nix` links it in.
 
 ## Locale, fonts, theme
 

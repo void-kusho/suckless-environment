@@ -8,7 +8,7 @@
 # /etc/profiles/per-user/void and are part of the system closure: one
 # `nixos-rebuild switch' applies everything, and there is no separate
 # `home-manager switch' to forget.
-{ pkgs, ... }:
+{ pkgs, pkgs-unstable, ... }:
 
 {
   home.username = "void";
@@ -91,6 +91,12 @@
     docker-compose
 
     kdePackages.kdenlive
+
+    # From nixos-unstable (flake.nix says why): the free tier refuses any
+    # client older than 1.18.0, and nixos-26.05 had 1.15.10. This replaces
+    # the curl installer's ~/.opencode/bin, which updated itself outside
+    # the store and outside any rollback.
+    pkgs-unstable.opencode
   ];
 
   # OBS through its module: it is what builds the wrapper that can find

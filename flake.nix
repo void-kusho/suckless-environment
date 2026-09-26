@@ -18,10 +18,19 @@
     inputs.nixpkgs.follows = "nixpkgs";
   };
 
+  # For hosts/nixos-btw/home.nix only, and only for what cannot wait for
+  # the stable branch: programs whose server refuses old clients. opencode
+  # is the case that forced it -- its free tier answers "OpenCode 1.18.0 or
+  # newer is required" and nixos-26.05 carried 1.15.10. Taken per package,
+  # never as the system's nixpkgs: nothing else follows it, and
+  # `nix flake update nixpkgs-unstable' moves it without moving the machine.
+  inputs.nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
+
   outputs =
     {
       self,
       nixpkgs,
+      nixpkgs-unstable,
       home-manager,
     }:
     let
@@ -170,6 +179,10 @@
                 # closure, so it rolls back with the system.
                 useUserPackages = true;
                 users.void = import ./hosts/nixos-btw/home.nix;
+                # legacyPackages, not a second `import nixpkgs-unstable':
+                # home.nix takes single packages from it, and none of them
+                # is unfree, so the host's predicate is not needed there.
+                extraSpecialArgs.pkgs-unstable = nixpkgs-unstable.legacyPackages.x86_64-linux;
                 # Rename a colliding file instead of aborting activation.
                 backupFileExtension = "backup";
               };
