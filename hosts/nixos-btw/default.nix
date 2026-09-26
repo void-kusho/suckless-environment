@@ -127,11 +127,42 @@
   programs.nix-ld.enable = true;
 
   # ------------------------------------------------------------------
+  # Docker: present, and asleep until something asks for it.
+  #
+  # enableOnBoot = false is the whole point of this block. The module wires
+  # the service as `wantedBy = optional cfg.enableOnBoot "multi-user.target"`,
+  # so with it off the daemon belongs to no target and boot starts nothing.
+  # The socket is wired unconditionally (`wantedBy = [ "sockets.target" ]`),
+  # costs no process while idle, and wakes dockerd on the first client call.
+  # Nothing to start by hand; `systemctl stop docker.service docker.socket`
+  # puts it back to sleep.
+  #
+  # Do not reach for virtualisation.docker.socketActivation. It was removed
+  # from the module -- "socket activation is now always active" -- and a
+  # rebuild that mentions it fails.
+  #
+  # The `docker` group is root-equivalent: a member can bind-mount / into a
+  # container and write it as root. Taken deliberately, on a single-user
+  # machine. virtualisation.docker.rootless is the trade in the other
+  # direction and pays for it in bind-mount and networking edges.
+  #
+  # The client is also in ./home.nix. Both resolve to the same derivation
+  # (docker-29.7.2 here and as the module's package default), so the
+  # duplicate is inert -- and that list is the user's call, not this file's.
+  # ------------------------------------------------------------------
+  virtualisation.docker = {
+    enable = true;
+    enableOnBoot = false;
+  };
+
+  # ------------------------------------------------------------------
   # The user.
   #
   #   wheel          -> sudo, and the polkit rule that mounts internal disks
   #   networkmanager -> nmcli/nmtui without sudo
   #   video, input   -> the backlight udev rules the module installs
+  #   docker         -> the daemon socket without sudo; root-equivalent,
+  #                     see the Docker block above
   #
   # No initialPassword: this account already exists with a password of its
   # own, and activation must never touch it.
@@ -143,6 +174,7 @@
       "networkmanager"
       "video"
       "input"
+      "docker"
     ];
     packages = with pkgs; [ tree ];
   };

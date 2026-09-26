@@ -74,8 +74,22 @@
     # that drives it.
     steamcmd
     steam-tui
-    docker
+
+    # The docker CLIENT is not here either, for the same reason as Steam's:
+    # it is `virtualisation.docker' in ./default.nix, which is what also
+    # brings the daemon, the socket unit and the `docker' group. The package
+    # it installs is the very derivation this list used to carry, so the
+    # entry here was a duplicate and nothing else.
+    #
+    # compose STAYS a user package: pkgs.docker ships `docker', `dockerd'
+    # and `dockerd-rootless' and no cli-plugins at all, so nothing in the
+    # system provides it. As a plain binary it is `docker-compose ...'; for
+    # `docker compose ...' to work as a subcommand the plugin has to be on
+    # the CLI's plugin path, which would be
+    # `virtualisation.docker.extraPackages' in ./default.nix -- a decision
+    # for whoever needs the subcommand form.
     docker-compose
+
     kdePackages.kdenlive
   ];
 
