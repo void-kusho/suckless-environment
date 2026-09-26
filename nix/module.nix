@@ -456,7 +456,20 @@ in
     programs.thunar = {
       enable = true;
       plugins = with pkgs; [
-        thunar-archive-plugin # "Extract Here" / "Create Archive..."
+        # "Extract Here" / "Create Archive...". The plugin runs
+        # <default archiver>.tap, looked up ONLY in its own
+        # $out/libexec/thunar-archive-plugin (the path is compiled into the
+        # .so). It ships taps for ark, engrampa and file-roller; xarchiver
+        # ships its own, in xarchiver's store path, where the plugin never
+        # looks -- so both entries failed with "Failed to determine tap
+        # provider". Link it in. The tap calls `xarchiver' from PATH, which
+        # the systemPackages entry above provides.
+        (thunar-archive-plugin.overrideAttrs (old: {
+          postInstall = (old.postInstall or "") + ''
+            ln -s ${xarchiver}/libexec/thunar-archive-plugin/xarchiver.tap \
+              $out/libexec/thunar-archive-plugin/xarchiver.tap
+          '';
+        }))
         thunar-volman # removable media; moved out of xfce. in 26.05
       ];
     };
