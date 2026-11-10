@@ -767,6 +767,40 @@ in
       pulse.enable = true;
     };
 
+    # Speech synthesis: off, said out loud.
+    #
+    # nixpkgs turns this on for us. `services.speechd.enable' is
+    # `lib.mkDefault true' in nixos/modules/services/misc/graphical-desktop.nix,
+    # which every graphical configuration imports, so the desktop inherits a
+    # screen reader back end it never asked for.
+    #
+    # What turning it off is worth, measured rather than guessed: the system
+    # closure goes 22.4 GiB -> 21.7 GiB, and `nix store diff-closures' names
+    # the 699 MiB that leave -- mbrola-voices 644.7 MiB, speech-dispatcher
+    # 28.9 MiB, espeak-ng 18.6 MiB, picotts 6.8 MiB, then dotconf, sonic,
+    # pcaudiolib, pyxdg, alsa-plugins and the mbrola binaries. (The
+    # speech-dispatcher path alone reports a 1.2 GiB *closure* under
+    # `nix path-info -Sh'; the difference is glibc and the rest of the base,
+    # which the desktop keeps either way. 699 MiB is the honest number.)
+    #
+    # Nothing here consumes it: no Orca, no at-spi client that speaks, and
+    # the only binaries it puts on PATH are `spd-conf' and `spd-say'. (The
+    # `orca' in ~/.config is a different program entirely.)
+    #
+    # Declared false rather than left alone because an inherited default is
+    # how a decision comes back: the next person to read this file should
+    # find the choice, not the absence of one. Flip it to true if a screen
+    # reader is ever wanted -- that is a real need, and it is cheap to say.
+    #
+    # Plain `false', not `lib.mkDefault false', and that is not a slip. Both
+    # definitions would then sit at priority 1000 and the module system
+    # refuses to pick: "The option `services.speechd.enable' has conflicting
+    # definition values". Overriding an upstream mkDefault needs a stronger
+    # priority, and a bare value (100) is the weakest one that is strong
+    # enough -- `lib.mkForce' would also work and would additionally stop any
+    # host from saying otherwise, which is not the intent.
+    services.speechd.enable = false;
+
     networking.networkmanager.enable = true;
   };
 }
